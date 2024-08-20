@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "af2rave"
+version = "0.1.0"
+description = "AlphaFold2-RAVE package that generates boltzman-ranked non-native conformations for proteins"
+readme = "README.rst"
+authors = [
+  {name = "Da Teng", email = "tengda1997@gmail.com"}
+]
+maintainers = [
+  {name = "Da Teng", email = "tengda1997@gmail.com"}
+]
+classifiers = [
+
+]
+license = {text = "MIT license"}
+dependencies = [
+  "typer"
+]
+
+[project.optional-dependencies]
+dev = [
+    "coverage",  # testing
+    "mypy",  # linting
+    "pytest",  # testing
+    "ruff"  # linting
+]
+
+[project.urls]
+
+bugs = "https://github.com/k9cdt/af2rave/issues"
+changelog = "https://github.com/k9cdt/af2rave/blob/master/changelog.md"
+homepage = "https://github.com/k9cdt/af2rave"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+"*" = ["*.*"]
+
+
+
+
+# Mypy
+# ----
+
+[tool.mypy]
+files = "."
+
+# Use strict defaults
+strict = true
+warn_unreachable = true
+warn_no_return = true
+
+[[tool.mypy.overrides]]
+# Don't require test functions to include types
+module = "tests.*"
+allow_untyped_defs = true
+disable_error_code = "attr-defined"
+
