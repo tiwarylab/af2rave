@@ -38,9 +38,9 @@ class rMSAAnalysis:
         :return: np.ndarray: The RMSD of the atoms in the selection for each frame in the trajectory.
         '''
 
-        self.rmsd = md.rmsd(self.traj, self.ref, atom_indices=self.ref.top.select(selection))
+        self.rmsd = md.rmsd(self.traj, self.ref, atom_indices=self.ref.top.select(selection)) * 10
         
-        return self.rmsd * 10
+        return self.rmsd
     
     def drop_unphysical_structures(self, rmsd_cutoff: float = 4.5) -> None:
         '''
@@ -50,7 +50,7 @@ class rMSAAnalysis:
         :return: None
         '''
 
-        self.traj = self.traj[np.where(self.rmsd < rmsd_cutoff/10)]
+        self.traj = self.traj[np.where(self.rmsd < rmsd_cutoff)]
 
     def select_features(self, 
                         selection: str = "name CA", 
@@ -149,3 +149,77 @@ class rMSAAnalysis:
                 idx += 1
 
         return pairwise_distances, label
+
+    @staticmethod
+    @njit(parallel=True)
+    def _get_distance_to_center(center, coord):
+
+        ncenters = center.shape[0]
+        npoints = coord.shape[0]
+        ndims = center.shape[1]
+
+        distance_mat = np.zeros((ncenters, npoints))
+
+        for i in np.arange(ncenters):
+            for j in np.arange(npoints):
+                distance_mat[i, j] = np.linalg.norm(coord[j] - center[i])/np.sqrt(ndims)
+
+        return distance_mat
+
+    def regular_space_clustering(self, 
+                                 n_features: int,
+                                 min_dist: float, 
+                                 max_centers: int = 100, 
+                                 batch_size: int = 100, 
+                                 randomseed: int = 0) -> tuple[np.ndarray, np.ndarray]:
+        '''
+        Performs regular space clustering on the selected dimensions of features.
+
+        :param n_features: int: The number of features to use for clustering.
+        :param min_dist: float: The minimum distance between cluster centers.
+        :param max_centers: int: The maximum number of cluster centers.
+        :param batch_size: int: The number of points to process in each batch. 
+        :param randomseed: int: The random seed to use for the permutation.
+        :return center: np.ndarray: The cluster center coordinates.
+        :return center_id: np.ndarray: The indices of the cluster centers.
+        '''
+
+        z = self.feature[:,-n_features:]
+        npoints, d = z.shape
+
+        # Reshuffle the data with a random permutation, but keep the first element fixed
+        p = np.hstack((0, np.random.RandomState(seed=randomseed).permutation(npoints-1)+1))
+        data = z[p]
+
+        # The first element is always a cluster center
+        center_list = data[0, :].copy().reshape(1, d)
+        center_id = np.array([-1 for i in np.arange(max_centers)])
+        center_id[0] = np.array(p[0]+1)
+
+        i = 1
+        ncenter = 1
+        while i < npoints:
+
+            x_active = data[i:i+batch_size]
+
+            # All indices of points that are at least min_dist away from all cluster centers
+            distances = self._get_distance_to_center(center_list, x_active)
+            indice = np.nonzero(np.all((distances > min_dist/10), axis=0))[0]
+
+            if len(indice) > 0:
+
+                # the first element will be added as cluster center
+                center_list = np.append(center_list, x_active[indice[0]][np.newaxis,:], axis=0)
+                center_id[ncenter] = p[i + indice[0]] + 1
+                ncenter += 1
+                i += indice[0]
+            else:
+                i += batch_size
+            if ncenter >= max_centers:
+                raise ValueError(f"{i}/{npoints} clustered. \
+                                 {center_id.size} centers exceeded the maximum number of cluster centers {max_centers}. \
+                                 Please increase min_dist.")
+        
+        center_id = center_id[center_id != -1]
+
+        return center_list, center_id

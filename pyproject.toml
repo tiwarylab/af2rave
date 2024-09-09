@@ -18,7 +18,10 @@ classifiers = [
 ]
 license = {text = "MIT license"}
 dependencies = [
-  "typer"
+  "typer",
+  "numpy",
+  "openmm",
+  "mdtraj"
 ]
 
 [project.optional-dependencies]
@@ -31,18 +34,15 @@ dev = [
 
 [project.urls]
 
-bugs = "https://github.com/k9cdt/af2rave/issues"
-changelog = "https://github.com/k9cdt/af2rave/blob/master/changelog.md"
-homepage = "https://github.com/k9cdt/af2rave"
+bugs = "https://github.com/tiwarylab/af2rave/issues"
+changelog = "https://github.com/tiwarylab/af2rave/blob/master/changelog.md"
+homepage = "https://github.com/tiwarylab/af2rave"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = {"" = "af2rave"}
 
 [tool.setuptools.package-data]
 "*" = ["*.*"]
-
-
-
 
 # Mypy
 # ----
