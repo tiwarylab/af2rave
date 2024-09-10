@@ -12,7 +12,7 @@ class rMSAAnalysis:
                  pdb_name: list[str],
                  ref_pdb: str = None) -> None:
         '''
-        Initialize the rMSAAnalysis object.
+        Initialize the rMSAAnalysis object. This also computes the CA RMSD to the reference structure and sorts the trajectory by the RMSD.
 
         :param pdb_name: ArrayLike[str]: The name(s) of the PDB file from reduced MSA.
         :param ref_pdb: str: The name of the reference structure. If none is provided, the first frame of the input PDB file will be used as the reference.
@@ -30,6 +30,11 @@ class rMSAAnalysis:
         self.traj = md.load(pdb_name)
         self.ref = md.load(ref_pdb)
 
+        self.ca_rmsd: np.ndarray = np.array(md.rmsd(self.traj, self.ref, atom_indices=self.ref.top.select("name CA")) * 10)
+        rmsd_rank = np.argsort(self.ca_rmsd)
+        self.traj = md.join([self.traj[i] for i in rmsd_rank])
+        self.pdb_name = [self.pdb_name[i] for i in rmsd_rank]
+
     def get_rmsd(self, selection: str = "name CA") -> np.ndarray:
         '''
         Get the RMSD of the atoms in the selection for each frame in the trajectory.
@@ -38,19 +43,34 @@ class rMSAAnalysis:
         :return: np.ndarray: The RMSD of the atoms in the selection for each frame in the trajectory.
         '''
 
-        self.rmsd = md.rmsd(self.traj, self.ref, atom_indices=self.ref.top.select(selection)) * 10
-        
-        return self.rmsd
+        rmsd = md.rmsd(self.traj, self.ref, atom_indices=self.ref.top.select(selection)) * 10
+        return np.array(rmsd)
     
-    def drop_unphysical_structures(self, rmsd_cutoff: float = 4.5) -> None:
+    def drop_unphysical_structures(self, selection = "name CA", rmsd_cutoff: float = 10.0) -> np.ndarray:
         '''
         Drop structures with RMSD above the cutoff. This modifies the trajectory in place.
 
-        :param rmsd_cutoff: float: The RMSD cutoff value in Angstrom.
-        :return: None
+        :param rmsd_cutoff: The RMSD cutoff value in Angstrom. Default: 10.0 Angstrom
+        :type rmsd_cutoff: float
+        :param selection: The selection string to the atoms to calculate the RMSD. Default: "name CA"
+        :type selection: str
+        :return: The RMSD of the atoms in the selection for each frame in the trajectory.
+        :rtype: np.ndarray
         '''
 
-        self.traj = self.traj[np.where(self.rmsd < rmsd_cutoff)]
+        rmsd = self.get_rmsd(selection)
+
+        mask = (rmsd < rmsd_cutoff).nonzero()[0]
+        try:
+            assert(len(mask) > 0)
+        except:
+            raise ValueError(f"No structures are below the RMSD cutoff of {rmsd_cutoff} Angstrom.")
+        
+        self.traj = md.join([self.traj[i] for i in mask])
+        self.pdb_name = [self.pdb_name[i] for i in mask]
+        self.ca_rmsd = self.ca_rmsd[mask]
+
+        return rmsd[mask]
 
     def select_features(self, 
                         selection: str = "name CA", 
@@ -59,16 +79,17 @@ class rMSAAnalysis:
 
         atom_index = self.traj.top.select(selection)
 
-        name = [str(self.traj.top.atom(i)) for i in atom_index]
+        atom_name = [str(self.traj.top.atom(i)) for i in atom_index]
         coords = np.array(self.traj.xyz[:, atom_index, :])
 
-        pd, label = self._pairwise_distance(coords, name)
+        pd, label = self._pairwise_distance(coords, atom_name)
 
+        # sort the features by coefficient of variation
         cv = np.std(pd, axis=0)/np.mean(pd, axis=0)
         rank = np.argsort(cv)
-        self.feature = pd[:,rank]
-        self.label = [label[i] for i in rank]
-        self.n_features = n_features
+        self.feature: np.ndarray = pd[:,rank]
+        self.label: list[str] = [label[i] for i in rank]
+        self.n_features: int = n_features
 
         if return_all:
             return self.feature, self.label
@@ -78,7 +99,7 @@ class rMSAAnalysis:
     def reduce_features(self, 
                         n_features: int, 
                         max_outputs: int = 20, 
-                        bins: int = 30, 
+                        bins: int = 50, 
                         kde_bandwidth: float = 0.02,
                         **kwargs: dict) -> tuple[list[str], np.ndarray]:
         '''
@@ -94,10 +115,15 @@ class rMSAAnalysis:
 
         from . import amino
 
+        if n_features is None:
+            n_features = self.n_features
+        elif n_features > self.feature.shape[1]:
+            raise ValueError(f"Number of features {n_features} is greater than the number of features in the dataset {self.feature.shape[1]}.")
+
         names = self.label[-n_features:]
         trajs = self.feature[:,-n_features:]
 
-        ops = [amino.OrderParameter(n, trajs[i]) for i, n in enumerate(names)]
+        ops = [amino.OrderParameter(n, trajs[:,i]) for i, n in enumerate(names)]
         final_ops = amino.find_ops(ops, max_outputs=max_outputs, bins=bins, bandwidth=kde_bandwidth, verbose=False, **kwargs)
 
         op_names = [op.name for op in final_ops]
@@ -184,17 +210,21 @@ class rMSAAnalysis:
         :return center_id: np.ndarray: The indices of the cluster centers.
         '''
 
+        if n_features is None:
+            n_features = self.n_features
+        elif n_features > self.feature.shape[1]:
+            raise ValueError(f"Number of features {n_features} is greater than the number of features in the dataset {self.feature.shape[1]}.")
+        
         z = self.feature[:,-n_features:]
         npoints, d = z.shape
 
         # Reshuffle the data with a random permutation, but keep the first element fixed
-        p = np.hstack((0, np.random.RandomState(seed=randomseed).permutation(npoints-1)+1))
+        p = np.hstack((0, np.random.RandomState(seed=randomseed).permutation(npoints - 1) + 1))
         data = z[p]
 
         # The first element is always a cluster center
-        center_list = data[0, :].copy().reshape(1, d)
-        center_id = np.array([-1 for i in np.arange(max_centers)])
-        center_id[0] = np.array(p[0]+1)
+        center_id = np.full(max_centers, -1)
+        center_id[0] = p[0]
 
         i = 1
         ncenter = 1
@@ -203,21 +233,21 @@ class rMSAAnalysis:
             x_active = data[i:i+batch_size]
 
             # All indices of points that are at least min_dist away from all cluster centers
-            distances = self._get_distance_to_center(center_list, x_active)
-            indice = np.nonzero(np.all((distances > min_dist/10), axis=0))[0]
+            center_list = data[center_id[center_id != -1]]
+            distances = self._get_distance_to_center(center_list, x_active) * 10
+            indice = np.nonzero(np.all((distances > min_dist), axis=0))[0]
 
             if len(indice) > 0:
 
                 # the first element will be added as cluster center
-                center_list = np.append(center_list, x_active[indice[0]][np.newaxis,:], axis=0)
-                center_id[ncenter] = p[i + indice[0]] + 1
+                center_id[ncenter] = p[i + indice[0]]
                 ncenter += 1
-                i += indice[0]
+                i += indice[0] + 1
             else:
                 i += batch_size
             if ncenter >= max_centers:
                 raise ValueError(f"{i}/{npoints} clustered. \
-                                 {center_id.size} centers exceeded the maximum number of cluster centers {max_centers}. \
+                                 Exceeded the maximum number of cluster centers {max_centers}. \
                                  Please increase min_dist.")
         
         center_id = center_id[center_id != -1]
