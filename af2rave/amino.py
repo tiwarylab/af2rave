@@ -11,6 +11,7 @@ https://doi.org/10.1039/C9ME00115H
 
 import numpy as np
 from sklearn.neighbors import KernelDensity
+from numpy.typing import ArrayLike
 
 class OrderParameter:
     """Order Parameter (OP) class - stores OP name and trajectory
@@ -26,7 +27,7 @@ class OrderParameter:
     """
 
     # name should be unique to the Order Parameter being defined
-    def __init__(self, name, traj):
+    def __init__(self, name: str, traj: ArrayLike):
         self.name = name
         self.traj = np.array(traj).reshape([-1,1])/np.std(traj)
 
@@ -58,7 +59,7 @@ class Memoizer:
         
     """
     
-    def __init__(self, bins, bandwidth, kernel, weights=None):
+    def __init__(self, bins: int, bandwidth: float, kernel: str, weights: ArrayLike = None):
         self.memo = {}
         self.bins = bins
         self.bandwidth = bandwidth
@@ -131,7 +132,9 @@ class Memoizer:
         return d
     
     def _distance_kernel(self, OP1: OrderParameter, OP2: OrderParameter) -> float:
-        """Returns the mutual information distance between two OPs.
+        """The primary function for calculating the mutual information distance.
+        While the wrapper function first looks for a cached value, this function
+        is the computation kernel that calculates the distance.
         
         Parameters
         ----------
@@ -143,7 +146,7 @@ class Memoizer:
             
         Returns
         -------
-        float
+        distance : float
             The mutual information distance.
             
         """
@@ -158,9 +161,9 @@ class Memoizer:
         info = np.sum(p_xy * (log_p_xy - log_p_x_times_p_y))
         entropy = np.sum(-1 * p_xy * log_p_xy)
 
-        output = max(0.0, (1 - (info / entropy)))
+        distance = max(0.0, (1 - (info / entropy)))
 
-        return output
+        return distance
 
 # Dissimilarity Matrix (DM) construction
 class DissimilarityMatrix:
@@ -184,7 +187,7 @@ class DissimilarityMatrix:
         self.OPs = []
 
     # Checks a new OP against OP's in DM to see if it should be added to DM
-    def add_OP(self, OP) -> None:
+    def add_OP(self, new_op: OrderParameter) -> None:
         """Adds OPs to the matrix if they should be added.
         OPs should be added when there are fewer OPs than self.size
         or if they can increase the geometric mean of distances
@@ -201,28 +204,30 @@ class DissimilarityMatrix:
             self.matrix is updated directly without a return.
             
         """
-        
+
+        self_distance = self.mut.distance(new_op, new_op) 
+        try:
+            assert(self_distance < 1e-2)
+        except:
+            raise ValueError(f"The dissimilarity between an OP and itself is not close to zero. Decrease bandwidth. Current: {self.mut.bandwidth:.4f}")
+
         if len(self.OPs) == self.size: # matrix is full, check for swaps
 
             # distance of the new OP to all existing OPs
-            mut_info = np.array([self.mut.distance(OP, i) for i in self.OPs])
+            mut_info = np.array([self.mut.distance(new_op, i) for i in self.OPs])
 
             # product of distances between all existing OPs, excluding the diagonal element (Eqn. 3)
             # Taking the power of 1/(|S|-1) is not necessary for comparison purposes
-            existing = np.array([np.prod(self.matrix[i], where=(np.arange(self.size) != i)) for i in np.arange(self.size)])
+            product = np.array([np.prod(self.matrix[i], where=(np.arange(self.size) != i)) for i in np.arange(self.size)])
 
-            for i in np.arange(self.size):
+            n = np.argmin(product)   # Algorithm 3 Line 7
+            product_row = np.prod(mut_info, where=(np.arange(self.size) != n)) # Algorithm 3 Line 8
 
-                n = np.argmin(existing)   # Algorithm 3 Line 7
-
-                candidate_info = np.prod(mut_info, where=(np.arange(self.size) != i)) # Algorithm 3 Line 8
-
-                if existing[n] < candidate_info:  # Algorithm 3 Line 9
-
-                    mut_info[n] = self.mut.distance(OP, OP) 
-                    self.matrix[n,:] = mut_info
-                    self.matrix[:,n] = mut_info
-                    self.OPs[n] = OP  # Update the list of OPs
+            if product[n] < product_row:  # Algorithm 3 Line 9
+                mut_info[n] = self_distance
+                self.matrix[n,:] = mut_info
+                self.matrix[:,n] = mut_info
+                self.OPs[n] = new_op  # Update the list of OPs
 
         else: # adding an OP when there are fewer than self.size
 
@@ -230,21 +235,14 @@ class DissimilarityMatrix:
 
             n = len(self.OPs)
             for i, op in enumerate(self.OPs):
-                mut_info[i] = self.mut.distance(OP, op)
-            mut_info[n] = self.mut.distance(OP, OP)
-
-            try:
-                assert(mut_info[n] < 1e-2)
-            except:
-                raise ValueError("The dissimilarity between an OP and itself is not close to zero. Decrease bandwidth.")
+                mut_info[i] = self.mut.distance(new_op, op)
+            mut_info[n] = self_distance
 
             self.matrix[n,:] = mut_info
             self.matrix[:,n] = mut_info
 
-            self.OPs.append(OP)
+            self.OPs.append(new_op)
 
-
-# Computes distortion using selected `centers` given full set of `ops`
 def distortion(centers: list[OrderParameter], ops: list[OrderParameter], mut: Memoizer) -> float:
     """Computes the distortion between a set of centeroids and OPs.
     When multiple centoids are used, the minimum distortion grouping
@@ -271,11 +269,10 @@ def distortion(centers: list[OrderParameter], ops: list[OrderParameter], mut: Me
         dis += (min_val * min_val)
     return 1 + np.sqrt(dis)
 
-def get_matrix(ops, mut):
+def get_matrix(ops: list[OrderParameter], mut: Memoizer) -> np.array:
     """Get a matrix containing the distance between all OPs.
     This will most commonly be used after clustering is completed
     to observe the distances used for clustering.
-    
     
     Parameters
     ----------
@@ -326,32 +323,38 @@ def cluster(ops: list[OrderParameter], seeds: list[OrderParameter], mut: Memoize
         
     """
 
+    # we will only keep track of the indices of the centers
     centers = np.array([ops.index(c) for c in seeds])
     new_centers = np.zeros_like(centers)
-    group = np.full((len(ops)), -1, dtype=int)
 
-    # Initialize with cluster centers
-    for i, s in enumerate(centers):
-        group[s] = i
+    while np.any(set(centers) != set(new_centers)):
 
-    while np.any(centers != new_centers):
+        # first put in all cluster centers
+        group = np.full(len(ops), -1)
+        for i, s in enumerate(centers):
+            group[s] = i
 
+        # copy the centers
         centers = np.array(new_centers)
 
         # Assign all OP to nearest cluster
         for i, op in enumerate(ops):
+
+            # technically this if statement is redudant as or any cluster center the distance is 0.
+            # I felt like adding this as you never know if there are other OPs close enough, and with
+            # the numerical precision, there will end up having a few empty clusters.
             if group[i] == -1:
                 dist = [mut.distance(op, ops[c]) for c in centers]
                 group[i] = np.argmin(dist)
 
         # Calculates the new centroid minimizing distortion for a set of OPs.
-        for i, c in enumerate(centers):
+        for i, _ in enumerate(centers):
 
             # index of all members in my center
             my_group = np.nonzero(group == i)[0]
 
-            dtt = [np.sum([mut.distance(ops[g], ops[j]) ** 2 for j in my_group]) for g in my_group]
-            new_centers[i] = my_group[np.argmin(dtt)]
+            distortion = [np.sum([mut.distance(ops[g], ops[j]) ** 2 for j in my_group]) for g in my_group]
+            new_centers[i] = my_group[np.argmin(distortion)]
 
     return [ops[i] for i in centers]
 

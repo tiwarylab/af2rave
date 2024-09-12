@@ -7,6 +7,8 @@ simulation boxes, run simulations, and analyze trajectories.
 import openmm.app as app
 from openmm.unit import angstroms, picoseconds, kelvin
 
+import numpy as np
+
 def create_simulation_box(filename: str, 
                         forcefield, 
                         outfile: str = None,
@@ -85,3 +87,52 @@ def create_simulation_box(filename: str,
             app.PDBFile.writeFile(modeller.topology, modeller.positions, f, keepIds=True)
 
     return modeller.positions, modeller.topology
+
+
+class CVReporter(object):
+    '''
+    An OpenMM reporter that writes a PLUMED-style COLVAR file of the features.
+    This reporter writes to the `file` every `reportInterval` steps.
+    The first column is the number of steps instead of time.
+    Distances are in the units of Angstorms.
+    '''
+
+    def __init__(self, file: str = "COLVAR.dat", reportInterval = 100, list_of_indexes: list[tuple[int, int]] = None):
+        '''
+        Initialize the CVReporter object. 
+
+        :param file: The name of the file to write the CVs to. Default: COLVAR.dat
+        :type file: str
+        :param reportInterval: The interval at which to write the CVs. Default: 100
+        :type reportInterval: int
+        :param list_of_indexes: The list of indexes to calculate the CVs. Default: None
+        :type list_of_indexes: list[tuple[int, int]]
+        '''
+
+        self._out = open(file, 'w')
+        self._reportInterval = reportInterval
+        self.list_of_cv = list_of_indexes
+        self.n_cv = len(list_of_indexes)
+        try:
+            assert self.n_cv > 0
+        except:
+            raise ValueError("No CVs added.")
+        
+        self.buffer = np.zeros(self.n_cv)
+        self.format = "{} " + "{:.4f} " * self.n_cv + "\n"
+        self._out.write("#! TIME " + " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv]) + "\n")
+
+    def __del__(self):
+        self._out.flush()
+        self._out.close()
+
+    def describeNextReport(self, simulation):
+        steps = self._reportInterval - simulation.currentStep%self._reportInterval
+        return (steps, True, False, False, False, None)
+
+    def report(self, simulation, state):
+        step = simulation.currentStep
+        coord = state.getPositions(asNumpy=True)
+        for i, (a, b) in enumerate(self.list_of_cv):
+            self.buffer[i] = np.linalg.norm(coord[a]-coord[b]).value_in_unit(angstroms)
+        self._out.write(self.format.format(step, *self.buffer))

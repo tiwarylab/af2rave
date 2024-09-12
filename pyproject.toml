@@ -18,10 +18,13 @@ classifiers = [
 ]
 license = {text = "MIT license"}
 dependencies = [
+  "python>=3.8",
   "typer",
   "numpy",
-  "openmm",
-  "mdtraj"
+  "openmm>=8.1.1",
+  "mdtraj>=1.10.0",
+  "sklearn",
+  "numba"
 ]
 
 [project.optional-dependencies]

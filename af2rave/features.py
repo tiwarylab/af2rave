@@ -2,9 +2,7 @@ import numpy as np
 import mdtraj as md
 
 from numba import njit
-from itertools import combinations
-
-from numpy.typing import ArrayLike
+from . import simulation
 
 class rMSAAnalysis:
 
@@ -12,7 +10,7 @@ class rMSAAnalysis:
                  pdb_name: list[str],
                  ref_pdb: str = None) -> None:
         '''
-        Initialize the rMSAAnalysis object. This also computes the CA RMSD to the reference structure and sorts the trajectory by the RMSD.
+        Initialize the FeatureAnalysis object. This also computes the CA RMSD to the reference structure and sorts the trajectory by the RMSD.
 
         :param pdb_name: ArrayLike[str]: The name(s) of the PDB file from reduced MSA.
         :param ref_pdb: str: The name of the reference structure. If none is provided, the first frame of the input PDB file will be used as the reference.
@@ -72,36 +70,79 @@ class rMSAAnalysis:
 
         return rmsd[mask]
 
-    def select_features(self, 
-                        selection: str = "name CA", 
-                        n_features: int = 100,
-                        return_all: bool = False) -> None:
+    def rank_features(self, selection: str = "name CA") -> tuple[np.ndarray, list[set[int, int]]]:
+        '''
+        Rank the features by the coefficient of variation.
+
+        :param selection: str: The selection string to use to select the atoms.
+        :return feature: np.ndarray, shape=(nframes, nfeatures). The feature vector. Unit: Angstrom
+        :return atom_pairs: list[tuple[int, int]]: The list of atom pairs.
+
+        '''
+
+        from itertools import combinations
 
         atom_index = self.traj.top.select(selection)
+        atom_pairs = list(combinations(atom_index, 2))
 
-        atom_name = [str(self.traj.top.atom(i)) for i in atom_index]
-        coords = np.array(self.traj.xyz[:, atom_index, :])
-
-        pd, label = self._pairwise_distance(coords, atom_name)
+        pd = md.compute_distances(self.traj, atom_pairs, periodic=False) * 10
 
         # sort the features by coefficient of variation
         cv = np.std(pd, axis=0)/np.mean(pd, axis=0)
-        rank = np.argsort(cv)
-        self.feature: np.ndarray = pd[:,rank]
-        self.label: list[str] = [label[i] for i in rank]
-        self.n_features: int = n_features
+        rank = np.argsort(cv)[::-1]
+        cv = cv[rank]
+        self.atom_pairs = [atom_pairs[i] for i in rank]
+        self.feature = pd[:,rank]
 
-        if return_all:
-            return self.feature, self.label
-        else:
-            return self.feature[:,-n_features:], self.label[-n_features:]
-    
+        # set up a backmap to look up things from the atom pairs 
+        self.feature_dict = {}
+        for i, ap in enumerate(self.atom_pairs):
+            self.feature_dict[frozenset(ap)] = i
+
+        return self.feature, self.atom_pairs, cv
+
+    def get_feature(self, atom_pairs: list[set[int, int]]) -> np.ndarray:
+        '''
+        Get the features for the selected atom pairs.
+
+        :param atom_pairs: list[tuple[int, int]]: The list of atom pairs to get the features for.
+        :return: np.ndarray: The features for the selected atom pairs.
+        '''
+
+        if not isinstance(atom_pairs, list):
+            atom_pairs = [atom_pairs]
+
+        indices = [self.feature_dict[ap] for ap in atom_pairs]
+        return self.feature[:,indices]
+
+    def get_feature_name(self, atom_pairs: list[set[int, int]]) -> list[str]:
+        '''
+        Get the names of the features.
+
+        :param atom_pairs: The list of atom pairs to get the names for.
+        :type atom_pairs: list[tuple[int, int]]
+        :return: The names of the features.
+        :rtype: list[str]
+        '''
+
+        if not isinstance(atom_pairs, list):
+            atom_pairs = [atom_pairs]
+        
+        feature_names = ["" for _ in atom_pairs]
+        
+        for n, (i, j) in enumerate(atom_pairs):
+            resname_i = str(self.traj.top.atom(i))
+            resname_j = str(self.traj.top.atom(j))
+            feature_names[n] = f"{resname_i}_{resname_j}"
+
+        return feature_names
+
     def reduce_features(self, 
-                        n_features: int, 
+                        atom_pairs: list[set[int, int]], 
                         max_outputs: int = 20, 
                         bins: int = 50, 
                         kde_bandwidth: float = 0.02,
-                        **kwargs: dict) -> tuple[list[str], np.ndarray]:
+                        **kwargs: dict) -> list[tuple[int, int]]:
         '''
         Reduce the number of features using AMINO. Please see and cite https://doi.org/10.1039/C9ME00115H for a description of the method.
 
@@ -110,29 +151,27 @@ class rMSAAnalysis:
         :param bins: int: The number of bins for the histogram.
         :param kde_bandwidth: float: The bandwidth for the KDE.
         :param kwargs: dict: Additional keyword arguments to pass to the AMINO functions.
-        :return: tuple(list[str], np.ndarray): The names of the selected features and the corresponding features.
+        :return: list[tuple[int, int]]: The names of the selected features and the corresponding features.
         '''
 
         from . import amino
 
-        if n_features is None:
-            n_features = self.n_features
-        elif n_features > self.feature.shape[1]:
-            raise ValueError(f"Number of features {n_features} is greater than the number of features in the dataset {self.feature.shape[1]}.")
+        indices = [self.feature_dict[frozenset(ap)] for ap in atom_pairs]
+        # Get these feature matrices for these atom pairs
+        trajs = self.feature[:,indices]
 
-        names = self.label[-n_features:]
-        trajs = self.feature[:,-n_features:]
-
+        # This is a pretty weird feature in AMINO. The original code distinguish the features by their names (a string).
+        # So the only way we can incorporate AMINO in is to work around a string representation
+        names = self.get_feature_name(atom_pairs)
         ops = [amino.OrderParameter(n, trajs[:,i]) for i, n in enumerate(names)]
-        final_ops = amino.find_ops(ops, max_outputs=max_outputs, bins=bins, bandwidth=kde_bandwidth, verbose=False, **kwargs)
+        selected_ops = amino.find_ops(ops, max_outputs=max_outputs, bins=bins, bandwidth=kde_bandwidth, verbose=False, **kwargs)
 
-        op_names = [op.name for op in final_ops]
-        op_index = [names.index(n) for n in op_names]
-        op_features = trajs[:,op_index]
+        selected_name = [op.name for op in selected_ops]
+        selected_ap = [atom_pairs[names.index(n)] for n in selected_name]
 
-        return op_names, op_features
+        return selected_ap
 
-    def get_chimera_plotscript(self, labels: list[str] = None) -> str:
+    def get_chimera_plotscript(self, atom_pairs: list[set[int, int]] = None) -> str:
         '''
         Generate a Chimera plotscript to visualize the selected features.
 
@@ -140,41 +179,15 @@ class rMSAAnalysis:
         :return: str: The Chimera plotscript.
         '''
 
-        import re
-
         plotscript = f"open {self.ref_pdb}\n"
-        for l in labels:
-            resid_i, resid_j = re.findall(r"\d+", l)
-            atom_i, atom_j = re.findall(r"-\w+", l)
-            plotscript += f"distance :{resid_i}@{atom_i[1:]} :{resid_j}@{atom_j[1:]}\n"
+        for i, j in atom_pairs:
+            resid_i = self.traj.top.atom(i).residue.index
+            resid_j = self.traj.top.atom(j).residue.index
+            atom_name_i = self.traj.top.atom(i).name
+            atom_name_j = self.traj.top.atom(j).name
+            plotscript += f"distance :{resid_i + 1}@{atom_name_i} :{resid_j + 1}@{atom_name_j}\n"
 
         return plotscript
-
-    @staticmethod
-    @njit
-    def _pairwise_distance(coord: np.ndarray, atom_name: list[str]) -> np.ndarray:
-        '''
-        Calculate pairwise distances between all atoms in a frame.
-        
-        :param coord: np.ndarray, shape=(nframes, natoms, 3)
-        :return: np.ndarray, shape=(nframes, natoms*(natoms-1)//2)
-        '''
-
-        nframes = coord.shape[0]
-        natoms = coord.shape[1]
-        pairwise_distances = np.zeros((nframes, natoms*(natoms-1)//2))
-
-        label = ["" for i in range(natoms*(natoms-1)//2)]
-
-        idx = 0
-        for j in range(natoms):
-            for k in range(j+1, natoms):
-                label[idx] = f"{atom_name[j]}/{atom_name[k]}"
-                for i in range(nframes):
-                    pairwise_distances[i, idx] = np.linalg.norm(coord[i,j] - coord[i,k])
-                idx += 1
-
-        return pairwise_distances, label
 
     @staticmethod
     @njit(parallel=True)
@@ -210,12 +223,13 @@ class rMSAAnalysis:
         :return center_id: np.ndarray: The indices of the cluster centers.
         '''
 
+        feature_dimensions = self.feature.shape[1]
         if n_features is None:
             n_features = self.n_features
-        elif n_features > self.feature.shape[1]:
-            raise ValueError(f"Number of features {n_features} is greater than the number of features in the dataset {self.feature.shape[1]}.")
+        elif n_features > feature_dimensions:
+            raise ValueError(f"Number of features {n_features} is greater than the number of features in the dataset {feature_dimensions}.")
         
-        z = self.feature[:,-n_features:]
+        z = self.feature[:,:n_features]
         npoints, d = z.shape
 
         # Reshuffle the data with a random permutation, but keep the first element fixed
@@ -234,7 +248,7 @@ class rMSAAnalysis:
 
             # All indices of points that are at least min_dist away from all cluster centers
             center_list = data[center_id[center_id != -1]]
-            distances = self._get_distance_to_center(center_list, x_active) * 10
+            distances = self._get_distance_to_center(center_list, x_active)
             indice = np.nonzero(np.all((distances > min_dist), axis=0))[0]
 
             if len(indice) > 0:
@@ -253,3 +267,27 @@ class rMSAAnalysis:
         center_id = center_id[center_id != -1]
 
         return center_list, center_id
+
+    def get_openmm_reporter(self, 
+                            n_features: int,
+                            file: str = "COLVAR.dat", 
+                            reportInterval: int = 100,
+                            ) -> simulation.CVReporter:
+        '''
+        Generate a CVReporter object to write the features to a file.
+
+        :param file: str: The name of the file to write the CVs to. Default: COLVAR.dat
+        :param reportInterval: int: The interval at which to write the CVs. Default: 100
+        :param list_of_indexes: list[tuple[int, int]]: The list of indexes to calculate the CVs. Default: None
+        :return: None
+        '''
+
+        feature_dimensions = len(self.feature.keys())
+        if n_features is None:
+            n_features = self.n_features
+        elif n_features > feature_dimensions:
+            raise ValueError(f"Number of features {n_features} is greater than the number of features in the dataset {feature_dimensions}.")
+        
+        label = self.label[-n_features:]
+
+        return simulation.CVReporter(file, reportInterval, list_of_indexes)
