@@ -206,7 +206,7 @@ class rMSAAnalysis:
         return distance_mat
 
     def regular_space_clustering(self, 
-                                 n_features: int,
+                                 atom_pairs: list[tuple[int, int]],
                                  min_dist: float, 
                                  max_centers: int = 100, 
                                  batch_size: int = 100, 
@@ -223,14 +223,10 @@ class rMSAAnalysis:
         :return center_id: np.ndarray: The indices of the cluster centers.
         '''
 
-        feature_dimensions = self.feature.shape[1]
-        if n_features is None:
-            n_features = self.n_features
-        elif n_features > feature_dimensions:
-            raise ValueError(f"Number of features {n_features} is greater than the number of features in the dataset {feature_dimensions}.")
-        
-        z = self.feature[:,:n_features]
-        npoints, d = z.shape
+        indices_features = np.array([self.feature_dict[frozenset(ap)] for ap in atom_pairs])
+
+        z = self.feature[:,indices_features]
+        npoints = z.shape[0]
 
         # Reshuffle the data with a random permutation, but keep the first element fixed
         p = np.hstack((0, np.random.RandomState(seed=randomseed).permutation(npoints - 1) + 1))
@@ -267,27 +263,3 @@ class rMSAAnalysis:
         center_id = center_id[center_id != -1]
 
         return center_list, center_id
-
-    def get_openmm_reporter(self, 
-                            n_features: int,
-                            file: str = "COLVAR.dat", 
-                            reportInterval: int = 100,
-                            ) -> simulation.CVReporter:
-        '''
-        Generate a CVReporter object to write the features to a file.
-
-        :param file: str: The name of the file to write the CVs to. Default: COLVAR.dat
-        :param reportInterval: int: The interval at which to write the CVs. Default: 100
-        :param list_of_indexes: list[tuple[int, int]]: The list of indexes to calculate the CVs. Default: None
-        :return: None
-        '''
-
-        feature_dimensions = len(self.feature.keys())
-        if n_features is None:
-            n_features = self.n_features
-        elif n_features > feature_dimensions:
-            raise ValueError(f"Number of features {n_features} is greater than the number of features in the dataset {feature_dimensions}.")
-        
-        label = self.label[-n_features:]
-
-        return simulation.CVReporter(file, reportInterval, list_of_indexes)
