@@ -311,7 +311,7 @@ def output_final_result(IB, device, train_past_data, train_future_data, train_da
         final_result = []
         # output the result
         
-        loss, reconstruction_error, kl_loss= [0 for i in range(3)]
+        loss, reconstruction_error, kl_loss = [0 for i in range(3)]
         
         for i in range(0, len(train_past_data), batch_size):
             batch_inputs, batch_outputs, batch_weights = sample_minibatch(train_past_data, train_data_labels, train_data_weights, \
@@ -321,12 +321,11 @@ def output_final_result(IB, device, train_past_data, train_future_data, train_da
             loss += loss1*len(batch_inputs)
             reconstruction_error += reconstruction_error1*len(batch_inputs)
             kl_loss += kl_loss1*len(batch_inputs)
-            
         
         # output the result
-        loss/=len(train_past_data)
-        reconstruction_error/=len(train_past_data)
-        kl_loss/=len(train_past_data)
+        loss /= len(train_past_data)
+        reconstruction_error /= len(train_past_data)
+        kl_loss /= len(train_past_data)
                 
         final_result += [loss.data.cpu().numpy(), reconstruction_error.cpu().data.numpy(), kl_loss.cpu().data.numpy()]
         print(
