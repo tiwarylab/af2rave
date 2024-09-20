@@ -97,7 +97,7 @@ class CVReporter(object):
     Distances are in the units of Angstorms.
     '''
 
-    def __init__(self, file: str = "COLVAR.dat", reportInterval = 100, list_of_indexes: list[tuple[int, int]] = None):
+    def __init__(self, file: str = "COLVAR.dat", reportInterval = 100, list_of_indexes: list[tuple[int, int]] = None, append=False):
         '''
         Initialize the CVReporter object. 
 
@@ -107,9 +107,10 @@ class CVReporter(object):
         :type reportInterval: int
         :param list_of_indexes: The list of indexes to calculate the CVs. Default: None
         :type list_of_indexes: list[tuple[int, int]]
-        '''
-
-        self._out = open(file, 'w')
+        :param append: Append to existing file 
+	:type append: bool
+	'''
+        self._out = open(file, 'a' if append else 'w')
         self._reportInterval = reportInterval
         self.list_of_cv = list_of_indexes
         self.n_cv = len(list_of_indexes)
