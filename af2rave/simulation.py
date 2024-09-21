@@ -135,5 +135,5 @@ class CVReporter(object):
         step = simulation.currentStep
         coord = state.getPositions(asNumpy=True)
         for i, (a, b) in enumerate(self.list_of_cv):
-            self.buffer[i] = np.linalg.norm(coord[a]-coord[b]).value_in_unit(angstroms)
+            self.buffer[i] = np.linalg.norm((coord[a]-coord[b]).value_in_unit(angstroms))
         self._out.write(self.format.format(step, *self.buffer))
