@@ -3,8 +3,8 @@ import torch
 import os
 import random
 
-import SPIB
-import SPIB_training
+from . import SPIB
+from . import SPIB_training
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 default_device = torch.device("cpu")
@@ -102,3 +102,28 @@ def spib(traj_data_list: list[torch.Tensor],
             IB.save_traj_results(traj_data_list[i], batch_size, output_path, SaveTrajResults, i, seed)
         
         IB.save_representative_parameters(output_path, seed)
+
+def create_input_from_colvar(filename: list[str] | str,
+                             stride: int = 1) -> tuple[list[torch.Tensor], list[torch.Tensor]]
+
+    if isinstance(filename, str):
+        filename = [filename]
+
+    traj_data_list = []
+    traj_labels_list = []
+
+    n_states = len(filename) * 2
+
+    for i, f in enumerate(filename):
+        
+        data = np.loadtxt(f)[::stride]
+
+        n_data = data.shape[0]
+        label = np.rint(np.linspace(0, 1, n_data)) + i * 2
+        onehot_label = np.eye(n_states)[label]
+
+        data = torch.tensor(data, dtype=torch.float32).to(device)
+        label = torch.tensor(onehot_label, dtype=torch.float32).to(device)
+
+        traj_data_list.append(data)
+        traj_labels_list.append(label)
