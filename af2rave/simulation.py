@@ -97,7 +97,7 @@ class CVReporter(object):
     Distances are in the units of Angstorms.
     '''
 
-    def __init__(self, file: str = "COLVAR.dat", reportInterval = 100, list_of_indexes: list[tuple[int, int]] = None, append=False):
+    def __init__(self, file: str = "COLVAR.dat", reportInterval = 100, list_of_indexes: list[tuple[int, int]] = None, append = False):
         '''
         Initialize the CVReporter object. 
 
@@ -108,8 +108,9 @@ class CVReporter(object):
         :param list_of_indexes: The list of indexes to calculate the CVs. Default: None
         :type list_of_indexes: list[tuple[int, int]]
         :param append: Append to existing file 
-	:type append: bool
-	'''
+	    :type append: bool
+	    '''
+        
         self._out = open(file, 'a' if append else 'w')
         self._reportInterval = reportInterval
         self.list_of_cv = list_of_indexes
@@ -137,3 +138,54 @@ class CVReporter(object):
         for i, (a, b) in enumerate(self.list_of_cv):
             self.buffer[i] = np.linalg.norm((coord[a]-coord[b]).value_in_unit(angstroms))
         self._out.write(self.format.format(step, *self.buffer))
+
+
+class UnbiasedSimulation():
+    '''
+    The goal here is the user will use this module like this:
+
+    > import af2rave.simulation as af2sim
+    > sim = af2sim.UnbiasedSimulation(<some arguments>)
+    > sim.run(<some other arguments, preferably as few as possible>)
+
+    Then throw this 3-line python script to a cluster.
+    '''
+
+    # What would you want to store in the object?
+    def __init__():
+        pass
+
+    def _get_system_integrator(topology, 
+                               forcefield, 
+                               temp: int = 310, 
+                               dt: float = 0.002, 
+                               cutoff: float = 10.0) -> app.Simulation:
+        '''
+        Create the integrator for the system using LangevinMiddleIntegrator. 
+        Finds the CUDA platform if available and will fallback to CPU if not.
+        Returns the OpenMM simulation object.
+
+        :param topology: OpenMM.app.Topology object
+        :type topology: OpenMM.app.Topology
+        :param forcefield: OpenMM.app.ForceField object
+        :type forcefield: OpenMM.app.ForceField
+        :param temp: Temperature of the system. Default: 310 K
+        :type temp: int
+        :param dt: Time step of the simulation. Default: 0.002 ps
+        :type dt: float
+        :param cutoff: Nonbonded cutoff. Default: 10.0 Angstrom
+        :type cutoff: float
+        '''
+        pass
+
+    def run(steps: int = 50000000):
+        '''
+        Run the simulation from given pdb file. Default: 50 million steps (100 ns).
+        '''
+        pass
+
+    def restart():
+        '''
+        Restart the simulation with a given PDB and checkpoint file.
+        '''
+        pass
