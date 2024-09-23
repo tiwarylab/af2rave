@@ -7,4 +7,4 @@ Read and cite the following when using this method:
 https://aip.scitation.org/doi/abs/10.1063/5.0038198
 """
 
-from . import wrapper
+from .wrapper import *

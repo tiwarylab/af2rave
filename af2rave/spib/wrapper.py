@@ -33,7 +33,7 @@ def spib(traj_data_list: list[torch.Tensor],
          SaveTrajResults: bool = True):
     
     ''' 
-    SPIB: A deep learning-based framework to learn RCs from MD trajectories. This is the Python interface for the SPIB model.
+    Python interface for the SPIB model.
     '''
 
     # Check the dimensions of the input
@@ -104,7 +104,16 @@ def spib(traj_data_list: list[torch.Tensor],
         IB.save_representative_parameters(output_path, seed)
 
 def create_input_from_colvar(filename: list[str] | str,
-                             stride: int = 1) -> tuple[list[torch.Tensor], list[torch.Tensor]]
+                             stride: int = 1) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
+    '''
+    Create input data from one or a list of PLUMED-style COLVAR file.
+
+    :param filename: The name of the file to read the CVs from.
+    :type filename: list[str] | str
+    :param stride: The interval at which to read the CVs. Default: 1
+    :type stride: int
+    :return: A tuple of two lists of torch.Tensor, the first list contains the CVs and the second list contains the labels.
+    '''
 
     if isinstance(filename, str):
         filename = [filename]
@@ -119,11 +128,13 @@ def create_input_from_colvar(filename: list[str] | str,
         data = np.loadtxt(f)[::stride]
 
         n_data = data.shape[0]
-        label = np.rint(np.linspace(0, 1, n_data)) + i * 2
-        onehot_label = np.eye(n_states)[label]
+        scalar_label = np.rint(np.linspace(0, 1, n_data)) + i * 2
+        onehot_label = np.eye(n_states)[scalar_label.astype(int)]
 
         data = torch.tensor(data, dtype=torch.float32).to(device)
         label = torch.tensor(onehot_label, dtype=torch.float32).to(device)
 
         traj_data_list.append(data)
         traj_labels_list.append(label)
+    
+    return traj_data_list, traj_labels_list
