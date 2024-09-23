@@ -283,5 +283,19 @@ class rMSAAnalysis:
 
     @property
     def feature_array(self):
-        arr = [self.features[fn].ts for fn in self.names]
-        return np.array(arr).T
+        return np.array([self.features[fn].ts for fn in self.names]).T
+
+    def pca(self, n_components: int = 2, **kwargs):
+        '''
+        Perform PCA on the selected features.
+
+        :param n_components: int: The number of components to keep.
+        :return: np.ndarray: The PCA components.
+        '''
+
+        from sklearn.decomposition import PCA
+
+        z = np.array([self.features[fn].ts for fn in self.names]).T
+        pca = PCA(n_components=n_components, **kwargs)
+        pca.fit(z)
+        return pca, pca.transform(z)
