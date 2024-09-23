@@ -1,7 +1,10 @@
 """AMINO: generating a minimally redundant set of order parameters through
 clustering of mutual information based distances. Method by Ravindra, Smith,
-and Tiwary. Code maintained by Ravindra and Smith. Tested and reorganized by 
-Da Teng in September 2024.
+and Tiwary. Code maintained by Ravindra, Smith, and Teng. 
+
+This module is reorganized by Da Teng in Sep 2024 for integration into the 
+af2rave package. This file is from commit 7957e0c of the original repository
+at https://github.com/tiwarylab/amino
 
 This is the serial kernel density estimation version.
 
@@ -186,6 +189,21 @@ class DissimilarityMatrix:
         self.mut = mut
         self.OPs = []
 
+    @staticmethod
+    def _product_without_self(arr: np.array) -> np.array:
+        
+        # Compute the prefix products
+        left_products = np.cumprod(arr)
+        # Compute the suffix products (reversing and then computing cumulative product)
+        right_products = np.cumprod(arr[::-1])[::-1]
+        
+        # Prepare the output by multiplying left and right products
+        output = np.ones_like(arr)
+        output[1:] = left_products[:-1]
+        output[:-1] *= right_products[1:]
+        
+        return output
+
     # Checks a new OP against OP's in DM to see if it should be added to DM
     def add_OP(self, new_op: OrderParameter) -> None:
         """Adds OPs to the matrix if they should be added.
@@ -207,7 +225,7 @@ class DissimilarityMatrix:
 
         self_distance = self.mut.distance(new_op, new_op) 
         try:
-            assert(self_distance < 1e-2)
+            assert(self_distance < 1e-10)
         except:
             raise ValueError(f"The dissimilarity between an OP and itself is not close to zero. Decrease bandwidth. Current: {self.mut.bandwidth:.4f}")
 
@@ -217,18 +235,21 @@ class DissimilarityMatrix:
             mut_info = np.array([self.mut.distance(new_op, i) for i in self.OPs])
 
             # product of distances between all existing OPs, excluding the diagonal element (Eqn. 3)
+            # Excluding the diagonal element 0 is the same as filling them with 1
             # Taking the power of 1/(|S|-1) is not necessary for comparison purposes
-            product = np.array([np.prod(self.matrix[i], where=(np.arange(self.size) != i)) for i in np.arange(self.size)])
+            product = np.prod(self.matrix + np.eye(self.size), axis=1) 
 
-            n = np.argmin(product)   # Algorithm 3 Line 7
-            product_row = np.prod(mut_info, where=(np.arange(self.size) != n)) # Algorithm 3 Line 8
+            product_row = self._product_without_self(mut_info)   # Leet
 
-            if product[n] < product_row:  # Algorithm 3 Line 9
+            diff = product - product_row
+            n = np.argmin(diff)
+
+            if diff[n] < 0:
                 mut_info[n] = self_distance
                 self.matrix[n,:] = mut_info
                 self.matrix[:,n] = mut_info
                 self.OPs[n] = new_op  # Update the list of OPs
-
+                      
         else: # adding an OP when there are fewer than self.size
 
             mut_info = np.zeros(self.size)
