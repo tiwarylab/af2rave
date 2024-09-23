@@ -4,7 +4,7 @@ from functools import cached_property
 
 from numba import njit
 from numpy.typing import ArrayLike
-from . import simulation
+
 
 class Feature(object):
 
@@ -16,7 +16,7 @@ class Feature(object):
             self._ap = atom_pair
         self._top = top
         self._ts = ts
-    
+
     @cached_property
     def name(self):
         i, j = self._ap
@@ -31,22 +31,22 @@ class Feature(object):
     @cached_property
     def mean(self):
         return np.mean(self._ts)
-    
+
     @cached_property
     def std(self):
         return np.std(self._ts)
-    
+
     @cached_property
     def cv(self):
         return self.std/self.mean
-    
+
     @cached_property
     def __len__(self):
         return self._ts.size
-    
+
     def __eq__(self, value) -> bool:
         return self._ap == value._ap
-    
+
     def get_plot_script(self):
 
         script = ""
@@ -56,7 +56,7 @@ class Feature(object):
         resid_j = self._top.atom(j).residue.index + 1
         atom_name_i = self._top.atom(i).name
         atom_name_j = self._top.atom(j).name
-        
+
         script += f"distance :{resid_i}@{atom_name_i} :{resid_j}@{atom_name_j}\n"
 
         if atom_name_i != "CA":
@@ -65,6 +65,7 @@ class Feature(object):
             script += f"show :{resid_j} a\n"
 
         return script
+
 
 class rMSAAnalysis:
 
@@ -105,8 +106,8 @@ class rMSAAnalysis:
 
         rmsd = md.rmsd(self.traj, self.ref, atom_indices=self.ref.top.select(selection)) * 10
         return np.array(rmsd)
-    
-    def drop_unphysical_structures(self, selection = "name CA", rmsd_cutoff: float = 10.0) -> np.ndarray:
+
+    def drop_unphysical_structures(self, selection="name CA", rmsd_cutoff: float = 10.0) -> np.ndarray:
         '''
         Drop structures with RMSD above the cutoff. This modifies the trajectory in place.
 
@@ -120,11 +121,8 @@ class rMSAAnalysis:
 
         rmsd = self.get_rmsd(selection)
         mask = (rmsd < rmsd_cutoff).nonzero()[0]
-        try:
-            assert(len(mask) > 0)
-        except:
-            raise ValueError(f"No structures are below the RMSD cutoff of {rmsd_cutoff} Angstrom.")
-        
+        assert len(mask) > 0, f"No structures are below the RMSD cutoff of {rmsd_cutoff} Angstrom."
+
         self.traj = md.join([self.traj[i] for i in mask])
         self.pdb_name = [self.pdb_name[i] for i in mask]
 
@@ -151,7 +149,7 @@ class rMSAAnalysis:
         self.features = {}
         self.names = ["" for _ in atom_pairs]
         for i, ap in enumerate(atom_pairs):
-            f = Feature(ap, self.traj.top, pw_dist[:,i])
+            f = Feature(ap, self.traj.top, pw_dist[:, i])
             self.features[f.name] = f
             self.names[i] = f.name
 
@@ -162,10 +160,10 @@ class rMSAAnalysis:
 
         return self.features, self.names, cv[rank]
 
-    def reduce_features(self, 
-                        feature_name: list[str], 
-                        max_outputs: int = 20, 
-                        bins: int = 50, 
+    def reduce_features(self,
+                        feature_name: list[str],
+                        max_outputs: int = 20,
+                        bins: int = 50,
                         kde_bandwidth: float = 0.02,
                         **kwargs: dict) -> list[str]:
         '''
@@ -181,15 +179,15 @@ class rMSAAnalysis:
 
         from . import amino
 
-        # This is a pretty weird feature in AMINO. The original code distinguish 
-        # the features by their names (a string). So the only way we can incorporate 
+        # This is a pretty weird feature in AMINO. The original code distinguish
+        # the features by their names (a string). So the only way we can incorporate
         # AMINO in is to work around a string representation
         ops = [amino.OrderParameter(n, self.features[n].ts) for n in feature_name]
-        selected_ops = amino.find_ops(ops, 
-                                      max_outputs=max_outputs, 
-                                      bins=bins, 
-                                      bandwidth=kde_bandwidth, 
-                                      verbose=False, 
+        selected_ops = amino.find_ops(ops,
+                                      max_outputs=max_outputs,
+                                      bins=bins,
+                                      bandwidth=kde_bandwidth,
+                                      verbose=False,
                                       **kwargs)
         selected_name = [op.name for op in selected_ops]
         return selected_name
@@ -224,11 +222,11 @@ class rMSAAnalysis:
 
         return distance_mat
 
-    def regular_space_clustering(self, 
+    def regular_space_clustering(self,
                                  feature_name: list[str],
-                                 min_dist: float, 
-                                 max_centers: int = 100, 
-                                 batch_size: int = 100, 
+                                 min_dist: float,
+                                 max_centers: int = 100,
+                                 batch_size: int = 100,
                                  randomseed: int = 0) -> tuple[np.ndarray, np.ndarray]:
         '''
         Performs regular space clustering on the selected dimensions of features.
@@ -236,7 +234,7 @@ class rMSAAnalysis:
         :param n_features: int: The number of features to use for clustering.
         :param min_dist: float: The minimum distance between cluster centers.
         :param max_centers: int: The maximum number of cluster centers.
-        :param batch_size: int: The number of points to process in each batch. 
+        :param batch_size: int: The number of points to process in each batch.
         :param randomseed: int: The random seed to use for the permutation.
         :return center: np.ndarray: The cluster center coordinates.
         :return center_id: np.ndarray: The indices of the cluster centers.
@@ -276,7 +274,7 @@ class rMSAAnalysis:
                 raise ValueError(f"{i}/{npoints} clustered. \
                                  Exceeded the maximum number of cluster centers {max_centers}. \
                                  Please increase min_dist.")
-        
+
         center_id = center_id[center_id != -1]
 
         return center_list, center_id

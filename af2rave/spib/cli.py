@@ -16,6 +16,7 @@ from wrapper import spib
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 default_device = torch.device("cpu")
 
+
 def main(traj: Annotated[str, Argument(help="Path to the trajectory data. Can be a list of paths like traj1.npy,traj2.npy")],
          label: Annotated[str, Argument(help="Path to the initial state labels. Can be a list.")],
          dt_list: Annotated[str, Argument(help="Time delay in terms of frames in the trajectory. Can be a list like 10,20,30")],
@@ -38,7 +39,7 @@ def main(traj: Annotated[str, Argument(help="Path to the trajectory data. Can be
          seed: Annotated[int, Option(help="Random seed.")] = 42,
          UpdateLabel: Annotated[bool, Option("--update-label", help="Whether update the labels during the training process")] = True,
          SaveTrajResults: Annotated[bool, Option("--save-traj-results", help="Whether save trajectory results")] = True):
-    
+
     # By default, we save all the results in subdirectories of the following path.
     base_path = "SPIB"
 
@@ -50,7 +51,7 @@ def main(traj: Annotated[str, Argument(help="Path to the trajectory data. Can be
     # Load the data
     traj_data_list = [torch.from_numpy(np.load(f)).float().to(device) for f in traj]
     traj_labels_list = [torch.from_numpy(np.load(f)).float().to(device) for f in label]
-    
+
     if bias is None:
         traj_weights_list = None
         base_path = os.path.join(base_path, "Unweighted")
@@ -61,11 +62,12 @@ def main(traj: Annotated[str, Argument(help="Path to the trajectory data. Can be
         traj_weights_list = [torch.from_numpy(np.load(file_path)).float().to(device) for file_path in bias]
         base_path = os.path.join(base_path, "Weighted")
 
-    spib(traj_data_list, traj_labels_list, dt_list, batch_size, traj_weights_list, 
-         base_path, t0, RC_dim, encoder_type, neuron_num1, neuron_num2, 
-         threshold, patience, refinements, log_interval, 
-         lr_scheduler_step_size, lr_scheduler_gamma, learning_rate, 
+    spib(traj_data_list, traj_labels_list, dt_list, batch_size, traj_weights_list,
+         base_path, t0, RC_dim, encoder_type, neuron_num1, neuron_num2,
+         threshold, patience, refinements, log_interval,
+         lr_scheduler_step_size, lr_scheduler_gamma, learning_rate,
          beta, seed, UpdateLabel, SaveTrajResults)
+
 
 if __name__ == '__main__':
     typer.run(main)

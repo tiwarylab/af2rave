@@ -9,25 +9,26 @@ from openmm.unit import angstroms, picoseconds, kelvin
 
 import numpy as np
 
-def create_simulation_box(filename: str, 
-                        forcefield, 
-                        outfile: str = None,
-                        **kwargs) -> tuple[list, app.Topology]:
+
+def create_simulation_box(filename: str,
+                          forcefield,
+                          outfile: str = None,
+                          **kwargs) -> tuple[list, app.Topology]:
     """
-    Generate the simulation box from a raw pdb file. 
-    Currently only soluble proteins are supported as we can only add water. 
+    Generate the simulation box from a raw pdb file.
+    Currently only soluble proteins are supported as we can only add water.
     Membrane systems will need to be addressed later.
 
     This function performs the following tasks:
     1. use pdbfixer to add missing atoms, residues, and terminals
     2. add hydrogen, at the given pH
     3. solvate the system with water
-    
+
     :param filename: path to the pdb file
     :type filename: str
     :param forcefield: forcefield to be used for adding hydrogens
     :type forcefield: OpenMM.app.ForceField
-    :param outfile: path to the output box PDB file. If None then no file is written.
+    :param outfile: Path to the output PDB file. None to suppress file output.
     :type outfile: str or None
     :param pH: float: pH of the system. Default is 7.0
     :type pH: float
@@ -50,7 +51,6 @@ def create_simulation_box(filename: str,
     from openmm.unit import angstrom, molar
 
     # fixer instance
-    # Note that 
     ifs = open(filename, 'r')
     fixer = pdbfixer.PDBFixer(pdbfile=ifs)
 
@@ -66,7 +66,7 @@ def create_simulation_box(filename: str,
 
     # add hydrogens
     pH = kwargs.get('pH', 7.0)
-    modeller.addHydrogens(forcefield, pH = pH)
+    modeller.addHydrogens(forcefield, pH=pH)
 
     # add solvent
     padding = kwargs.get('padding', 10 * angstrom)
@@ -74,13 +74,13 @@ def create_simulation_box(filename: str,
     positive_ion = kwargs.get('positiveIon', 'Na+')
     negative_ion = kwargs.get('negativeIon', 'Cl-')
     ionic_strength = kwargs.get('ionicStrength', 0.0 * molar)
-    modeller.addSolvent(forcefield, 
-                        padding = padding , 
-                        model = water_model, 
-                        neutralize = True, 
-                        positiveIon = positive_ion, 
-                        negativeIon = negative_ion,
-                        ionicStrength = ionic_strength)
+    modeller.addSolvent(forcefield,
+                        padding=padding,
+                        model=water_model,
+                        neutralize=True,
+                        positiveIon=positive_ion,
+                        negativeIon=negative_ion,
+                        ionicStrength=ionic_strength)
 
     if outfile is not None:
         with open(outfile, 'w') as f:
@@ -97,9 +97,12 @@ class CVReporter(object):
     Distances are in the units of Angstorms.
     '''
 
-    def __init__(self, file: str = "COLVAR.dat", reportInterval = 100, list_of_indexes: list[tuple[int, int]] = None, append = False):
+    def __init__(self, file: str = "COLVAR.dat",
+                 reportInterval=100,
+                 list_of_indexes: list[tuple[int, int]] = None,
+                 append=False):
         '''
-        Initialize the CVReporter object. 
+        Initialize the CVReporter object.
 
         :param file: The name of the file to write the CVs to. Default: COLVAR.dat
         :type file: str
@@ -107,19 +110,16 @@ class CVReporter(object):
         :type reportInterval: int
         :param list_of_indexes: The list of indexes to calculate the CVs. Default: None
         :type list_of_indexes: list[tuple[int, int]]
-        :param append: Append to existing file 
-	    :type append: bool
-	    '''
-        
+        :param append: Append to existing file
+        :type append: bool
+        '''
+
         self._out = open(file, 'a' if append else 'w')
         self._reportInterval = reportInterval
         self.list_of_cv = list_of_indexes
         self.n_cv = len(list_of_indexes)
-        try:
-            assert self.n_cv > 0
-        except:
-            raise ValueError("No CVs added.")
-        
+        assert self.n_cv > 0, "No CVs added."
+
         self.buffer = np.zeros(self.n_cv)
         self.format = "{} " + "{:.4f} " * self.n_cv + "\n"
         self._out.write("#! TIME " + " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv]) + "\n")
@@ -129,7 +129,7 @@ class CVReporter(object):
         self._out.close()
 
     def describeNextReport(self, simulation):
-        steps = self._reportInterval - simulation.currentStep%self._reportInterval
+        steps = self._reportInterval - simulation.currentStep % self._reportInterval
         return (steps, True, False, False, False, None)
 
     def report(self, simulation, state):
@@ -155,13 +155,13 @@ class UnbiasedSimulation():
     def __init__():
         pass
 
-    def _get_system_integrator(topology, 
-                               forcefield, 
-                               temp: int = 310, 
-                               dt: float = 0.002, 
+    def _get_system_integrator(topology,
+                               forcefield,
+                               temp: int = 310,
+                               dt: float = 0.002,
                                cutoff: float = 10.0) -> app.Simulation:
         '''
-        Create the integrator for the system using LangevinMiddleIntegrator. 
+        Create the integrator for the system using LangevinMiddleIntegrator.
         Finds the CUDA platform if available and will fallback to CPU if not.
         Returns the OpenMM simulation object.
 

@@ -9,9 +9,10 @@ from . import SPIB_training
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 default_device = torch.device("cpu")
 
-def spib(traj_data_list: list[torch.Tensor], 
-         traj_labels_list: list[torch.Tensor], 
-         dt_list = list[int], 
+
+def spib(traj_data_list: list[torch.Tensor],
+         traj_labels_list: list[torch.Tensor],
+         dt_list: list[int],
          batch_size: int = 512,
          traj_weights_list: list[torch.Tensor] = None,
          base_path: str = "SPIB",
@@ -31,8 +32,8 @@ def spib(traj_data_list: list[torch.Tensor],
          seed: int = 42,
          UpdateLabel: bool = True,
          SaveTrajResults: bool = True):
-    
-    ''' 
+
+    '''
     Python interface for the SPIB model.
     '''
 
@@ -47,14 +48,14 @@ def spib(traj_data_list: list[torch.Tensor],
     os.makedirs(os.path.dirname(final_result_path), exist_ok=True)
     with open(final_result_path, 'w') as f:
         f.write("Final Result\n")
-    
+
     np.random.seed(seed)
     torch.manual_seed(seed)
     random.seed(seed)
 
     for dt in dt_list:
-        data_init_list = [] 
-        if traj_weights_list == None:
+        data_init_list = []
+        if traj_weights_list is None:
             data_init_list = [SPIB_training.data_init(t0, dt, trj, lbl, None) for trj, lbl in zip(traj_data_list, traj_labels_list)]
             train_data_weights = None
             test_data_weights = None
@@ -74,34 +75,35 @@ def spib(traj_data_list: list[torch.Tensor],
 
         output_path = base_path + f"_d={RC_dim}_t={dt}_b={beta:.4f}_learn={learning_rate}"
 
-        IB = SPIB.SPIB(encoder_type, RC_dim, output_dim, data_shape, device, \
+        IB = SPIB.SPIB(encoder_type, RC_dim, output_dim, data_shape, device,
                        UpdateLabel, neuron_num1, neuron_num2)
-        
+
         IB.to(device)
-        
+
         # use the training set to initialize the pseudo-inputs
         IB.init_representative_inputs(train_past_data, train_data_labels)
 
         train_result = False
-        train_result = SPIB_training.train(IB, beta, 
-                                            train_past_data, train_future_data, train_data_labels, train_data_weights, \
-                                            test_past_data, test_future_data, test_data_labels, test_data_weights, \
-                                            learning_rate, lr_scheduler_step_size, lr_scheduler_gamma,\
-                                            batch_size, threshold, patience, refinements, \
-                                            output_path, log_interval, device, seed)
-        
+        train_result = SPIB_training.train(IB, beta,
+                                           train_past_data, train_future_data, train_data_labels, train_data_weights,
+                                           test_past_data, test_future_data, test_data_labels, test_data_weights,
+                                           learning_rate, lr_scheduler_step_size, lr_scheduler_gamma,
+                                           batch_size, threshold, patience, refinements,
+                                           output_path, log_interval, device, seed)
+
         if train_result:
             return
-        
-        SPIB_training.output_final_result(IB, device, 
-                                            train_past_data, train_future_data, train_data_labels, train_data_weights, \
-                                            test_past_data, test_future_data, test_data_labels, test_data_weights, \
-                                            batch_size, output_path, final_result_path, dt, beta, learning_rate, seed)
+
+        SPIB_training.output_final_result(IB, device,
+                                          train_past_data, train_future_data, train_data_labels, train_data_weights,
+                                          test_past_data, test_future_data, test_data_labels, test_data_weights,
+                                          batch_size, output_path, final_result_path, dt, beta, learning_rate, seed)
 
         for i in range(len(traj_data_list)):
             IB.save_traj_results(traj_data_list[i], batch_size, output_path, SaveTrajResults, i, seed)
-        
+
         IB.save_representative_parameters(output_path, seed)
+
 
 def create_input_from_colvar(filename: list[str] | str,
                              stride: int = 1) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
@@ -124,7 +126,7 @@ def create_input_from_colvar(filename: list[str] | str,
     n_states = len(filename) * 2
 
     for i, f in enumerate(filename):
-        
+
         data = np.loadtxt(f)[::stride]
 
         n_data = data.shape[0]
@@ -136,5 +138,5 @@ def create_input_from_colvar(filename: list[str] | str,
 
         traj_data_list.append(data)
         traj_labels_list.append(label)
-    
+
     return traj_data_list, traj_labels_list
