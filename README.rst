@@ -28,6 +28,24 @@ Features
 
 * TODO
 
+Installation
+--------
+
+It is strongly recommended a virtual environment is created for this package. First, create an environment
+
+.. code-block:: bash
+
+    python -m venv /path/to/your/environment
+    source /path/to/your/environment/bin/activate
+
+Then, install the package using pip.
+
+.. code-block:: bash
+
+    git clone git@github.com:tiwarylab/af2rave.git af2rave
+    cd af2rave
+    pip install .
+
 Credits
 -------
 
