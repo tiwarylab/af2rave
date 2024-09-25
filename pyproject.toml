@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "build"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -14,17 +14,22 @@ maintainers = [
   {name = "Da Teng", email = "tengda1997@gmail.com"}
 ]
 classifiers = [
-
+  "Environment :: GPU :: NVIDIA CUDA :: 12 :: 12.5",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python"
 ]
 license = {text = "MIT license"}
+requires-python = ">= 3.10"
 dependencies = [
-  "python>=3.10",
   "typer",
   "numpy",
   "openmm>=8.1.1",
   "mdtraj>=1.10.0",
   "scikit-learn",
-  "numba"
+  "numba",
+  "torch",
+  "pdbfixer @ git+https://github.com/openmm/pdbfixer.git"
 ]
 
 [project.optional-dependencies]
