@@ -47,7 +47,8 @@ changelog = "https://github.com/tiwarylab/af2rave/blob/master/changelog.md"
 homepage = "https://github.com/tiwarylab/af2rave"
 
 [tool.setuptools]
-package-dir = {"" = "af2rave"}
+packages = ["af2rave"]
+package-dir = {"af2rave" = "af2rave"}
 
 [tool.setuptools.package-data]
 "*" = ["*.*"]

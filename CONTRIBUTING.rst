@@ -64,11 +64,11 @@ Ready to contribute? Here's how to set up `af2rave` for local development.
 
     $ git clone git@github.com:your_name_here/af2rave.git
 
-3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development::
+3. Install your local copy into a venv::
 
-    $ mkvirtualenv af2rave
-    $ cd af2rave/
-    $ python setup.py develop
+    $ python -m venv path/to/your/dev_env
+    $ source path/to/your/dev_env/bin/activate
+    $ pip install af2rave[dev]
 
 4. Create a branch for local development::
 
@@ -111,7 +111,6 @@ Tips
 ----
 
 To run a subset of tests::
-
 
     $ python -m unittest tests.test_af2rave
 
