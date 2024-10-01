@@ -246,4 +246,47 @@ class UnbiasedSimulation():
             simulation = app.Simulation(self.topology, system, integrator, platform)
             
         return simulation
+    
+    def run(self,
+            barostat: bool = True,
+            save: bool = True,
+            restart: bool = False):
+        '''
+        Run the simulation from given pdb file. Default: 50 million steps (100 ns).
+        
+        :param barostat:
+        :type barostat: bool
+        :param save: Saves simulation if True. Default: True
+        :type save: bool
+        :param restart: Restarts simulation from saved checkpoint if True. Default: False
+        :type restart: bool
+        '''
+        simulation = _get_system_integrator()
+        
+        if restart == True and os.path.exists("checkpoint.chk"):
+            simulation.loadCheckpoint("checkpoint.chk")
+        else:
+            raise FileNotFoundError("Checkpoint file does not exist")
+        
+        if restart == False:
+            simulation.context.setPositions(self.positions)
+            simulation.minimizeEnergy()
             
+        # adding barostat to simulation if True
+        if barostat == True:
+            simulation.context.getSystem().addForce(MonteCarloBarostat(self.pressure*bar, self.temp*kelvin))
+            simulation.context.reinitialize(preserveState=True)
+        
+        simulation.reporters.append(CVReporter(self.cv_file, self.reportInterval, self.list_of_indexes, self.append))
+        simulation.reporters.append(XTCReporter(self.out_filename, self.out_freq, append=self.append,))
+        simulation.reporters.append(StateDataReporter(stdout, self.out_freq, step=True,
+            potentialEnergy=True, temperature=True, volume=True, density=True,
+            progress=True, remainingTime=True, totalSteps=self.steps, elapsedTime=True, speed=True, separator="\t", append=self.append))
+        simulation.step(self.steps)
+
+        if save == True:
+            simulation.saveCheckpoint("checkpoint.chk")
+
+        return simulation
+
+
