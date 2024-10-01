@@ -14,9 +14,9 @@ class CVReporter(object):
     '''
 
     def __init__(self, file: str = "COLVAR.dat",
-                 reportInterval=100,
+                 reportInterval: int = 100,
                  list_of_indexes: list[tuple[int, int]] = None,
-                 append=False):
+                 append: bool = False):
         '''
         Initialize the CVReporter object.
 
@@ -38,8 +38,10 @@ class CVReporter(object):
 
         self.buffer = np.zeros(self.n_cv)
         self.format = "{} " + "{:.4f} " * self.n_cv + "\n"
-        self._out.write("#! FIELD time " + 
-                        " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv]) + "\n")
+        if not append:
+            self._out.write("#! FIELD time " + 
+                            " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv]) + 
+                            "\n")
 
     def __del__(self):
         self._out.flush()

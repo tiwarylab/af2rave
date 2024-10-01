@@ -7,28 +7,11 @@ from . import DefaultForcefield
 class SimulationBox:
 
     def __init__(self, filename: str, 
-                 forcefield = DefaultForcefield,
+                 forcefield: app.ForceField = DefaultForcefield,
                  **kwargs):
-        
-        # store the input parameters
-        self.filename = filename
-        self.forcefield = forcefield
-        self.kwargs = kwargs
-
-        # keep track of the old topology
-        self.old_top = app.PDBFile(filename).topology
-
-        # create the simulation box according to kwargs
-        self.pos, self.top = self.create_box(**kwargs)
-
-        # maintain a mapping between old and new atom indices
-        self.atom_index_map = self._generate_mapping_table()
-
-    def create_box(self, **kwargs) -> tuple[list, app.Topology]:
         """
         Generate the simulation box from a raw pdb file.
         Currently only soluble proteins are supported as we can only add water.
-        Membrane systems will need to be addressed later.
 
         This function performs the following tasks:
         1. use pdbfixer to add missing atoms, residues, and terminals
@@ -39,8 +22,6 @@ class SimulationBox:
         :type filename: str
         :param forcefield: forcefield to be used for adding hydrogens
         :type forcefield: OpenMM.app.ForceField
-        :param outfile: Path to the output PDB file. None to suppress file output.
-        :type outfile: str or None
         :param pH: float: pH of the system. Default is 7.0
         :type pH: float
         :param padding: padding around the protein. Default is 10. Unit: Angstrom.
@@ -53,10 +34,23 @@ class SimulationBox:
         :type negativeIon: str
         :param ionicStrength: ionic strength of the system. Default is 0.0. Unit: molar
         :type ionicStrength: float
-
-        :return: positions, topology.
-        :rtype: tuple[list, OpenMM.app.Topology]
         """
+        
+        # store the input parameters
+        self._filename = filename
+        self._forcefield = forcefield
+        self._kwargs = kwargs
+
+        # keep track of the old topology
+        self._old_top = app.PDBFile(filename).topology
+
+        # create the simulation box according to kwargs
+        self.pos, self.top = self.create_box()
+
+        # maintain a mapping between old and new atom indices
+        self._atom_index_map = self._generate_mapping_table()
+
+    def create_box(self) -> tuple[list, app.Topology]:
 
         # fixer instance
         with open(self.filename, 'r') as ifs:
@@ -73,15 +67,15 @@ class SimulationBox:
         modeller = app.Modeller(fixer.topology, fixer.positions)
 
         # add hydrogens
-        pH = kwargs.get('pH', 7.0)
+        pH = self._kwargs.get('pH', 7.0)
         modeller.addHydrogens(self.forcefield, pH=pH)
 
         # add solvent
-        padding = kwargs.get('padding', 10 * angstrom)
-        water_model = kwargs.get('water_model', 'tip3p')
-        positive_ion = kwargs.get('positiveIon', 'Na+')
-        negative_ion = kwargs.get('negativeIon', 'Cl-')
-        ionic_strength = kwargs.get('ionicStrength', 0.0 * molar)
+        padding = self._kwargs.get('padding', 10 * angstrom)
+        water_model = self._kwargs.get('water_model', 'tip3p')
+        positive_ion = self._kwargs.get('positiveIon', 'Na+')
+        negative_ion = self._kwargs.get('negativeIon', 'Cl-')
+        ionic_strength = self._kwargs.get('ionicStrength', 0.0 * molar)
         modeller.addSolvent(self.forcefield,
                             padding=padding,
                             model=water_model,
@@ -102,21 +96,13 @@ class SimulationBox:
         with open(filename, 'w') as f:
             app.PDBFile.writeFile(self.top, self.pos, f, keepIds=True)
 
-    def translate_atom_index(self, index):
-        '''
-        Translate atom index from input PDB to the output PDB file.
-
-        After adding hydrogen, the atom index will be changed. This function
-        translates the old atom index to the new atom index.
-        '''
-
     def _generate_mapping_table(self):
 
         index_lookup = {}
         forward_map = {}
         
         # Note that xxx.index counts from 0 and xxx.id counts from 1
-        for a in self.old_top.atoms():
+        for a in self._old_top.atoms():
 
             # retrieve information for the old map
             index = a.index
@@ -152,8 +138,8 @@ class SimulationBox:
         '''
 
         if isinstance(index, int):
-            return self.atom_index_map[index]
+            return self._atom_index_map[index]
         elif isinstance(index, set):
-            return {self.atom_index_map[i] for i in index}
+            return {self._atom_index_map[i] for i in index}
         elif isinstance(index, list):
             return [self.translate_atom_index(i) for i in index]
