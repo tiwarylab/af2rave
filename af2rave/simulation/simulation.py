@@ -14,7 +14,6 @@ import openmm
 import openmm.app as app
 from openmm.unit import angstroms, picoseconds, kelvin
 
-import torch
 import numpy as np
 
 class UnbiasedSimulation():
@@ -90,6 +89,22 @@ class UnbiasedSimulation():
         self.out_filename = kwargs.get('out_filename', "traj.xtc")
         self.out_freq = kwargs.get('out_freq', 1000)
         self.append = kwargs.get('append', False)
+
+        # Check platforms and devices, etc.
+        n_platforms = openmm.Platform.getNumPlatforms()
+        platforms = [openmm.Platform.getPlatform(i) for i in range(n_platforms)]
+        platform_names = [platform.getName() for platform in platforms]
+        
+        # We will use platforms in the following order
+        pltfm_selection = ["CUDA", "OpenCL", "CPU"]
+        self.platform = None
+        try:
+            for i, plt in enumerate(pltfm_selection):
+                if plt in platform_names:
+                    print(f"Using {plt} platform.")
+                    self.platform = platforms[i]
+        except:
+            print("No suitable platform found. Attempted platforms: CUDA, OpenCL, CPU")
         
     def _get_system_integrator(self) -> app.Simulation:
         '''
@@ -98,21 +113,17 @@ class UnbiasedSimulation():
         Returns the OpenMM simulation object.
 
         '''
-        # finds device
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         system = self.forcefield.createSystem(self.topology,
                                               nonbondedMethod=app.PME,
                                               nonbondedCutoff=self.cutoff*angstroms,
                                               constraints=app.HBonds)
                                               
-        integrator = openmm.LangevinMiddleIntegrator(self.temp*kelvin, 1/picoseconds, self.dt*picoseconds)
+        integrator = openmm.LangevinMiddleIntegrator(self.temp*kelvin, 
+                                                     1/picoseconds, 
+                                                     self.dt*picoseconds)
 
-        if device.type == "cpu":
-            simulation = app.Simulation(self.topology, system, integrator)
-        else:
-            platform = openmm.Platform.getPlatformByName("CUDA")
-            simulation = app.Simulation(self.topology, system, integrator, platform)
+        simulation = app.Simulation(self.topology, system, integrator, self.platform)
             
         return simulation
     
@@ -130,7 +141,7 @@ class UnbiasedSimulation():
         :param restart: Restarts simulation from saved checkpoint if True. Default: False
         :type restart: bool
         '''
-        simulation = _get_system_integrator()
+        simulation = self._get_system_integrator()
         
         if restart == True and os.path.exists("checkpoint.chk"):
             simulation.loadCheckpoint("checkpoint.chk")
