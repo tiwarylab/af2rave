@@ -103,6 +103,7 @@ class UnbiasedSimulation():
                 if plt in platform_names:
                     print(f"Using {plt} platform.")
                     self.platform = platforms[i]
+                    break
         except:
             print("No suitable platform found. Attempted platforms: CUDA, OpenCL, CPU")
         
