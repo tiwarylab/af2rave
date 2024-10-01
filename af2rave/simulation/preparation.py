@@ -4,9 +4,10 @@ from openmm.unit import angstrom, molar
 import pdbfixer
 from . import DefaultForcefield
 
+
 class SimulationBox:
 
-    def __init__(self, filename: str, 
+    def __init__(self, filename: str,
                  forcefield: app.ForceField = DefaultForcefield,
                  **kwargs):
         """
@@ -35,7 +36,7 @@ class SimulationBox:
         :param ionicStrength: ionic strength of the system. Default is 0.0. Unit: molar
         :type ionicStrength: float
         """
-        
+
         # store the input parameters
         self._filename = filename
         self._forcefield = forcefield
@@ -100,14 +101,14 @@ class SimulationBox:
 
         index_lookup = {}
         forward_map = {}
-        
+
         # Note that xxx.index counts from 0 and xxx.id counts from 1
         for a in self._old_top.atoms():
 
             # retrieve information for the old map
             index = a.index
             name = a.name
-            resid = a.residue.id 
+            resid = a.residue.id
             chain = a.residue.chain.id
             index_lookup[(chain, resid, name)] = index
 
@@ -124,8 +125,9 @@ class SimulationBox:
                 pass
 
         return forward_map
-    
+
     type AtomIndexLike = int | set[int] | list[int] | list[set[int]]
+
     def translate_atom_index(self, index: AtomIndexLike) -> AtomIndexLike:
         '''
         Translate atom index from input PDB to the output PDB file.
