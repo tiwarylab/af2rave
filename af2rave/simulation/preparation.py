@@ -53,7 +53,7 @@ class SimulationBox:
     def create_box(self) -> tuple[list, app.Topology]:
 
         # fixer instance
-        with open(self.filename, 'r') as ifs:
+        with open(self._filename, 'r') as ifs:
             fixer = pdbfixer.PDBFixer(pdbfile=ifs)
 
         # finding and adding missing residues including terminals
@@ -68,7 +68,7 @@ class SimulationBox:
 
         # add hydrogens
         pH = self._kwargs.get('pH', 7.0)
-        modeller.addHydrogens(self.forcefield, pH=pH)
+        modeller.addHydrogens(self._forcefield, pH=pH)
 
         # add solvent
         padding = self._kwargs.get('padding', 10 * angstrom)
@@ -76,7 +76,7 @@ class SimulationBox:
         positive_ion = self._kwargs.get('positiveIon', 'Na+')
         negative_ion = self._kwargs.get('negativeIon', 'Cl-')
         ionic_strength = self._kwargs.get('ionicStrength', 0.0 * molar)
-        modeller.addSolvent(self.forcefield,
+        modeller.addSolvent(self._forcefield,
                             padding=padding,
                             model=water_model,
                             neutralize=True,
@@ -136,10 +136,12 @@ class SimulationBox:
         :param index: atom index or a list of atom indices
         :type index: AtomIndexLike: int or set[int] or list[int] or list[set[int]]
         '''
-
-        if isinstance(index, int):
-            return self._atom_index_map[index]
-        elif isinstance(index, set):
-            return {self._atom_index_map[i] for i in index}
-        elif isinstance(index, list):
-            return [self.translate_atom_index(i) for i in index]
+        try:
+            if isinstance(index, int):
+                return self._atom_index_map[index]
+            elif isinstance(index, set):
+                return {self._atom_index_map[i] for i in index}
+            elif isinstance(index, list):
+                return [self.translate_atom_index(i) for i in index]
+        except KeyError as e:
+            raise ValueError("Atom index not found in the topology.") from e
