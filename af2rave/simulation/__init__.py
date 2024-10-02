@@ -9,4 +9,4 @@ DefaultForcefield = app.ForceField("forcefield/charmm36m_protein.xml",
 
 from .cv_reporter import CVReporter
 from .simulation import UnbiasedSimulation
-from .preparation import *
+from .utils import *
