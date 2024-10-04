@@ -144,7 +144,6 @@ class rMSAAnalysis:
         atom_pairs = list(combinations(atom_index, 2))
 
         pw_dist = md.compute_distances(self.traj, atom_pairs, periodic=False) * 10
-        print(pw_dist.shape)
 
         self.features = {}
         self.names = ["" for _ in atom_pairs]

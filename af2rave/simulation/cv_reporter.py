@@ -5,6 +5,7 @@ This CVReporter generates a PLUMED-style COLVAR file of the features.
 import numpy as np
 from openmm.unit import angstroms
 
+
 class CVReporter(object):
     '''
     An OpenMM reporter that writes a PLUMED-style COLVAR file of the features.
@@ -14,9 +15,9 @@ class CVReporter(object):
     '''
 
     def __init__(self, file: str = "COLVAR.dat",
-                 reportInterval=100,
+                 reportInterval: int = 100,
                  list_of_indexes: list[tuple[int, int]] = None,
-                 append=False):
+                 append: bool = False):
         '''
         Initialize the CVReporter object.
 
@@ -26,10 +27,10 @@ class CVReporter(object):
         :type reportInterval: int
         :param list_of_indexes: The list of indexes to calculate the CVs. Default: None
         :type list_of_indexes: list[tuple[int, int]]
-        :param append: Append to existing file 
-	    :type append: bool
-	    '''
-        
+        :param append: Append to existing file
+        :type append: bool
+        '''
+
         self._out = open(file, 'a' if append else 'w')
         self._reportInterval = reportInterval
         self.list_of_cv = list_of_indexes
@@ -38,8 +39,10 @@ class CVReporter(object):
 
         self.buffer = np.zeros(self.n_cv)
         self.format = "{} " + "{:.4f} " * self.n_cv + "\n"
-        self._out.write("#! FIELD time " + 
-                        " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv]) + "\n")
+        if not append:
+            self._out.write("#! FIELD time " +
+                            " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv]) +
+                            "\n")
 
     def __del__(self):
         self._out.flush()
@@ -53,5 +56,5 @@ class CVReporter(object):
         step = simulation.currentStep
         coord = state.getPositions(asNumpy=True)
         for i, (a, b) in enumerate(self.list_of_cv):
-            self.buffer[i] = np.linalg.norm((coord[a]-coord[b]).value_in_unit(angstroms))
+            self.buffer[i] = np.linalg.norm((coord[a] - coord[b]).value_in_unit(angstroms))
         self._out.write(self.format.format(step, *self.buffer))
