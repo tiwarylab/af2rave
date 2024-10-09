@@ -6,6 +6,7 @@ simulation boxes, run simulations, and analyze trajectories.
 import os
 import sys
 from sys import stdout
+from pathlib import Path
 import pickle
 
 from mdtraj.reporters import XTCReporter
@@ -73,6 +74,8 @@ class UnbiasedSimulation():
         self.list_of_indexes = list_of_indexes
         
         self.pdb_file = app.pdbfile.PDBFile(pdb_file)
+        self.pdb_stem = Path(os.path.split(pdb_file)[-1]).stem
+        
         self.positions = self.pdb_file.positions
         self.topology = self.pdb_file.topology
         
@@ -166,6 +169,9 @@ class UnbiasedSimulation():
 
         if save == True:
             simulation.saveCheckpoint("checkpoint.chk")
+            # save pdb file at end of simulation
+            pos = simulation.context.getState(getPositions=True).getPositions()
+            app.PDBFile.writeFile(simulation.topology, pos, open(f"{self.pdb_stem}_out.pdb",'w'), keepIds=True)
 
         return simulation
 
