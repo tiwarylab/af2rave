@@ -146,10 +146,9 @@ class UnbiasedSimulation():
         
         if restart == True and os.path.exists("checkpoint.chk"):
             simulation.loadCheckpoint("checkpoint.chk")
-        else:
+        elif restart == True and not os.path.exists("checkpoint.chk"):
             raise FileNotFoundError("Checkpoint file does not exist")
-        
-        if restart == False:
+        elif restart == False:
             simulation.context.setPositions(self.positions)
             simulation.minimizeEnergy()
             
