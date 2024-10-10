@@ -4,140 +4,102 @@ This module is mostly a wrapper around OpenMM, and provides utilies that create
 simulation boxes, run simulations, and analyze trajectories.
 '''
 import os
-import sys
 from sys import stdout
 from pathlib import Path
-import pickle
 
 from mdtraj.reporters import XTCReporter
+from .cv_reporter import CVReporter
+from . import Charmm36mFF
 
 import openmm
 import openmm.app as app
-from openmm.unit import angstroms, picoseconds, kelvin
+from openmm.unit import angstroms, picoseconds, kelvin, bar
 
-import numpy as np
 
 class UnbiasedSimulation():
     '''
-    The goal here is the user will use this module like this:
+    UnbiasedSimulation class for running MD
 
     > import af2rave.simulation as af2sim
-    > sim = af2sim.UnbiasedSimulation(<some arguments>)
-    > sim.run(<some other arguments, preferably as few as possible>)
+    > sim = af2sim.UnbiasedSimulation(<arguments>)
+    > sim.run(steps)
 
-    Then throw this 3-line python script to a cluster.
     '''
 
-    
-    def __init__(self, pdb_file,
-                forcefield,
-                list_of_indexes,
-                temp: int = 310,
-                pressure: int = 1,
-                dt: float = 0.002,
-                cutoff: float = 10.0,
-                steps: int = 50000000,
-                **kwargs,
-                ):
+    def __init__(self, pdb_file, **kwargs):
         '''
         Simulation parameters
-        
+
         :param pdb_file: Path to OpenMM.app.pdbfile.PDBFile object
         :type pdb_file: str
-        :param forcefield: OpenMM.app.ForceField object
-        :type forcefield: OpenMM.app.ForceField
         :param list_of_indexes: List of indexes to calculate the CVs
         :type list_of_indexes: list[tuple[int, int]]
+        :param forcefield: OpenMM.app.ForceField object. Default: Charmm36mFF
+        :type forcefield: OpenMM.app.ForceField
         :param temp: Temperature of the system. Default: 310 K
-        :type temp: float
-        :param pressure: Pressure of the system. Default: 1 Bar
-        :type pressure: float
-        :param dt: Time step of the simulation. Default: 0.002 ps
-        :type dt: float
+        :type temp: float | openmm.unit.Quantity[unit=kelvin]
+        :param pressure: Pressure of the system. Default: 1 Bar.
+            Can be set to none to disable pressure coupling (NVT).
+        :type pressure: float | openmm.unit.Quantity[unit=bar]
+        :param dt: Time step of the integrator. Default: 0.002 ps
+        :type dt: float | openmm.unit.Quantity[unit=picoseconds]
         :param cutoff: Nonbonded cutoff. Default: 10.0 Angstroms
-        :type cutoff: float
+        :type cutoff: float | openmm.unit.Quantity[unit=angstroms]
         :param steps: Simulation steps. Default:  50 million steps (100 ns)
         :type steps: int
         :param cv_file: File to write CVs to. Default: COLVAR.dat
         :type cv_file: str
-        :param reportInterval: The interval at which to write the CVs. Default: 100
-        :type reportInterval: int
-        :param out_filename: File to write output XTC trajectory file to. Default: traj.xtc
-        :type out_filename: str
-        :param out_freq: Frequency of systems' state written to a trajectory file. Default: 1000
-        :type out_freq: int
+        :param cv_freq: Frequency of CVs written to the file. Default: 50
+        :type cv_freq: int
+        :param xtc_file: Trajectory file name. Default: traj.xtc
+        :type xtc_file: str
+        :param xtc_freq: Frequency writing trajectory in steps. Default: 1000
+        :type xtc_freq: int
+        :param xtc_reporter: XTCReporter object.
+            This overrides traj_filename and traj_freq. Default: None
+        :type xtc_reporter: mdtraj.reporters.XTCReporter
         :param append: Appends to existing file. Default: False
         :type append: bool
-        
+        :param progress_every: Progress report to stdout frequency. Default: 1000
+            Can be set to None to suppress this.
+        :type progress_every: int
         '''
-        
-        self.list_of_indexes = list_of_indexes
-        
-        self.pdb_file = app.pdbfile.PDBFile(pdb_file)
-        self.pdb_stem = Path(os.path.split(pdb_file)[-1]).stem
-        
-        self.positions = self.pdb_file.positions
-        self.topology = self.pdb_file.topology
-        
-        self.forcefield = forcefield
-        self.temp = temp
-        self.pressure = pressure
-        self.dt = dt
-        self.cutoff = cutoff
-        self.steps = steps
 
-        # Reporter parameters
-        self.cv_file = kwargs.get('cv_file', "COLVAR.dat")
-        self.reportInterval = kwargs.get('reportInterval', 100)
-        self.out_filename = kwargs.get('out_filename', "traj.xtc")
-        self.out_freq = kwargs.get('out_freq', 1000)
-        self.append = kwargs.get('append', False)
+        self._prefix = f"{Path(pdb_file).stem}"
 
-        # Check platforms and devices, etc.
-        n_platforms = openmm.Platform.getNumPlatforms()
-        platforms = [openmm.Platform.getPlatform(i) for i in range(n_platforms)]
-        platform_names = [platform.getName() for platform in platforms]
-        
-        # We will use platforms in the following order
-        pltfm_selection = ["CUDA", "OpenCL", "CPU"]
-        self.platform = None
-        try:
-            for i, plt in enumerate(pltfm_selection):
-                if plt in platform_names:
-                    print(f"Using {plt} platform.")
-                    self.platform = platforms[i]
-                    break
-        except:
-            print("No suitable platform found. Attempted platforms: CUDA, OpenCL, CPU")
-        
-    def _get_system_integrator(self) -> app.Simulation:
-        '''
-        Create the integrator for the system using LangevinMiddleIntegrator. 
-        Finds the CUDA platform if available and will fallback to CPU if not.
-        Returns the OpenMM simulation object.
+        pdb_file = app.pdbfile.PDBFile(pdb_file)
+        self._pos = pdb_file.positions
+        self._top = pdb_file.topology
 
-        '''
-        
-        system = self.forcefield.createSystem(self.topology,
-                                              nonbondedMethod=app.PME,
-                                              nonbondedCutoff=self.cutoff*angstroms,
-                                              constraints=app.HBonds)
-                                              
-        integrator = openmm.LangevinMiddleIntegrator(self.temp*kelvin, 
-                                                     1/picoseconds, 
-                                                     self.dt*picoseconds)
+        self._pressure = self._get_pressure(**kwargs)
+        self._temp = self._get_temperature(**kwargs)
 
-        simulation = app.Simulation(self.topology, system, integrator, self.platform)
-            
-        return simulation
-    
-    def run(self,
-            barostat: bool = True,
-            save: bool = True,
-            restart: bool = False):
+        self._forcefield = kwargs.get('forcefield', Charmm36mFF)
+        self._platform = self._choose_platform()
+        self.simulation = self._initialize_simulation(**kwargs)
+
+        self._append = kwargs.get('append', False)
+
+        # Reporters
+        self._progress_every = kwargs.get('progress_every', 1000)
+        self._add_reporter(self._get_cv_reporter(**kwargs))
+        self._add_reporter(self._get_xtc_reporter(**kwargs))
+
+        # pressure coupling if needed
+        if self._pressure is not None:
+            self.simulation.context.getSystem().addForce(
+                openmm.MonteCarloBarostat(self._pressure, self._temp)
+            )
+
+    @property
+    def pos(self):
+        self._pos = self.simulation.context.getState(getPositions=True).getPositions()
+        return self._pos
+
+    def run(self, steps: int = 50000000) -> app.Simulation:
         '''
         Run the simulation from given pdb file. Default: 50 million steps (100 ns).
-        
+
         :param barostat:
         :type barostat: bool
         :param save: Saves simulation if True. Default: True
@@ -145,34 +107,226 @@ class UnbiasedSimulation():
         :param restart: Restarts simulation from saved checkpoint if True. Default: False
         :type restart: bool
         '''
-        simulation = self._get_system_integrator()
-        
-        if restart == True and os.path.exists("checkpoint.chk"):
-            simulation.loadCheckpoint("checkpoint.chk")
-        elif restart == True and not os.path.exists("checkpoint.chk"):
-            raise FileNotFoundError("Checkpoint file does not exist")
-        elif restart == False:
-            simulation.context.setPositions(self.positions)
-            simulation.minimizeEnergy()
-            
-        # adding barostat to simulation if True
-        if barostat == True:
-            simulation.context.getSystem().addForce(MonteCarloBarostat(self.pressure*bar, self.temp*kelvin))
-            simulation.context.reinitialize(preserveState=True)
-        
-        simulation.reporters.append(CVReporter(self.cv_file, self.reportInterval, self.list_of_indexes, self.append))
-        simulation.reporters.append(XTCReporter(self.out_filename, self.out_freq, append=self.append,))
-        simulation.reporters.append(StateDataReporter(stdout, self.out_freq, step=True,
-            potentialEnergy=True, temperature=True, volume=True, density=True,
-            progress=True, remainingTime=True, totalSteps=self.steps, elapsedTime=True, speed=True, separator="\t", append=self.append))
-        simulation.step(self.steps)
 
-        if save == True:
-            simulation.saveCheckpoint("checkpoint.chk")
-            # save pdb file at end of simulation
-            pos = simulation.context.getState(getPositions=True).getPositions()
-            app.PDBFile.writeFile(simulation.topology, pos, open(f"{self.pdb_stem}_out.pdb",'w'), keepIds=True)
+        self.simulation.context.setPositions(self._pos)
+
+        # we have to do this at this later stage, because by design we
+        # do not know the number of steps at the time of initialization
+        self._add_reporter(self._get_thermo_reporter(steps))
+
+        self.simulation.context.reinitialize(preserveState=True)
+        self.simulation.minimizeEnergy()
+        self.simulation.step(steps)
+
+        return self.simulation
+
+    def restart(self, steps: int = 50000000, restart_file: str = None) -> app.Simulation:
+        '''
+        Run the simulation from given pdb file. Default: 50 million steps (100 ns).
+
+        :param steps: Number of steps to run the simulation.
+            Default: 50 million steps (100 ns)
+        :type steps: int
+        :param restart_file: Name of the checkpoint file. Default: {prefix}_out.chk
+        :type restart_file: str
+        '''
+
+        if restart_file is None:
+            restart_file = f"{self._prefix}_out.chk"
+            print(f"No restart file provided. Attempting from default {restart_file}.")
+
+        if not os.path.exists(restart_file):
+            raise FileNotFoundError("Checkpoint file does not exist")
+        self.simulation.loadCheckpoint(restart_file)
+
+        self.simulation.reporters.append(self._get_thermo_reporter(steps))
+
+        self.simulation.context.reinitialize(preserveState=True)
+        self.simulation.step(steps)
+
+        return self.simulation
+
+    def save_checkpoint(self, filename: str = None):
+        '''
+        Save the checkpoint of the simulation.
+
+        :param filename: Name of the checkpoint file. Default: {prefix}_out.chk
+        :type filename: str
+        '''
+        if filename is None:
+            filename = f"{self._prefix}_out.chk"
+        self.simulation.saveCheckpoint(filename)
+
+    def save_pdb(self, filename: str = None):
+        '''
+        Save the final state PDB of the simulation.
+
+        :param filename: Name of the pdb file. Default: {prefix}_out.pdb
+        :type filename: str
+        '''
+        if filename is None:
+            filename = f"{self._prefix}_out.pdb"
+        with open(filename, 'w') as ofs:
+            # Note that this pos has no underscore, so it will call the property
+            # and get the latest positions from the simulation context
+            app.PDBFile.writeFile(self._top, self.pos, ofs, keepIds=True)
+
+    def _initialize_simulation(self, **kwargs) -> app.Simulation:
+        '''
+        Create the integrator for the system using LangevinMiddleIntegrator.
+        Returns the OpenMM simulation object.
+
+        :param dt: Time step of the simulation. Default: 0.002, in ps
+        :type dt: openmm.unit.
+        :param cutoff: Nonbonded cutoff. Default: 10.0, in Angstroms
+        :type cutoff: float
+        '''
+
+        dt = kwargs.get('dt', 0.002 * picoseconds)
+        if isinstance(dt, float):
+            dt = dt * picoseconds
+
+        cutoff = kwargs.get('cutoff', 10.0 * angstroms)
+        if isinstance(cutoff, float):
+            cutoff = cutoff * angstroms
+
+        system = self._forcefield.createSystem(
+            self._top,
+            nonbondedMethod=app.PME,
+            nonbondedCutoff=cutoff,
+            constraints=app.HBonds
+        )
+        integrator = openmm.LangevinMiddleIntegrator(self._temp, 1 / picoseconds, dt)
+        simulation = app.Simulation(self._top, system, integrator, self._platform)
 
         return simulation
 
+    def _choose_platform(self) -> openmm.Platform:
+        '''
+        Choose the platform for the simulation.
+        1. CUDA 2. OpenCL 3. CPU
 
+        :return: OpenMM platform
+        :rtype: OpenMM.Platform
+        :raises: RuntimeError if no suitable platform is found.
+        '''
+
+        # enumerate all platforms with openmm
+        n_platforms = openmm.Platform.getNumPlatforms()
+        platforms = [openmm.Platform.getPlatform(i) for i in range(n_platforms)]
+        platform_names = [platform.getName() for platform in platforms]
+
+        # We will use platforms in the following order
+        my_platform = None
+        selection = ["CUDA", "OpenCL", "CPU"]
+        for i, plt in enumerate(selection):
+            if plt in platform_names:
+                print(f"Using {plt} platform.")
+                my_platform = platforms[i]
+                break
+        if my_platform is None:
+            raise RuntimeError("No suitable platform found. Attempted: CUDA, OpenCL, CPU")
+
+        return my_platform
+
+    def _get_thermo_reporter(self, steps: int):
+        '''
+        Initialize the state reporters for the simulation.
+        '''
+
+        if self._progress_every is None:
+            return None
+        rep = app.StateDataReporter(stdout,
+                    self._progress_every, step=True,
+                    potentialEnergy=True, temperature=True, volume=True,
+                    progress=True, remainingTime=True,
+                    totalSteps=steps, elapsedTime=True,
+                    speed=True, separator="\t", append=self._append
+        )
+        return rep
+
+    def _get_cv_reporter(self, **kwargs) -> CVReporter | None:
+        '''
+        Get the CV reporter for the simulation.
+
+        :return: CVReporter object or None
+        :rtype: CVReporter | None
+        '''
+
+        if "cv_reporter" in kwargs:
+            return kwargs["cv_reporter"]
+
+        list_of_indices = kwargs.get('list_of_indices', None)
+
+        if list_of_indices is not None:
+            cv_file = kwargs.get('cv_file', "COLVAR.dat")
+            cv_freq = kwargs.get('cv_freq', 50)
+            append = kwargs.get('append', False)
+            return CVReporter(cv_file, cv_freq, list_of_indices, append)
+
+        print("No atom indices provided. Will not output CV timeseries.")
+        return None
+
+    def _get_xtc_reporter(self, **kwargs) -> XTCReporter | None:
+        '''
+        Get the CV reporter for the simulation.
+
+        :return: CVReporter object or None
+        :rtype: CVReporter | None
+        '''
+
+        if "xtc_reporter" in kwargs:
+            return kwargs["xtc_reporter"]
+        else:
+            xtc_file = kwargs.get('xtc_file', "traj.xtc")
+            xtc_freq = kwargs.get('xtc_freq', 1000)
+
+            # We will allow the user to suppress trajectory writing by setting
+            # either traj_filename or traj_freq to None
+            if (xtc_file is None) or (xtc_freq is None):
+                return None
+
+            return XTCReporter(xtc_file, xtc_freq, self._append)
+
+    def _get_pressure(self, **kwargs):
+        '''
+        Get the pressure for the simulation.
+
+        :return: Pressure of the system
+        :rtype: openmm.unit.Quantity[unit=bar]
+        '''
+
+        pressure = kwargs.get('pressure', 1.0 * bar)
+        if pressure is None:
+            return None
+        if isinstance(pressure, float):
+            return pressure * bar
+        return pressure
+
+    def _get_temperature(self, **kwargs):
+        '''
+        Get the temperature for the simulation.
+
+        :return: Temperature of the system
+        :rtype: openmm.unit.Quantity[unit=kelvin]
+        '''
+
+        temp = kwargs.get('temp', 310.0 * kelvin)
+        if temp is None:
+            raise ValueError("Temperature cannot be set to None.")
+        if isinstance(temp, float):
+            return temp * kelvin
+        return temp
+
+    def _add_reporter(self, reporter):
+        '''
+        Add a reporter to the simulation.
+
+        :param reporter: Reporter object
+        :type reporter: openmm.app.StateDataReporter | CVReporter | XTCReporter
+        '''
+
+        if reporter is None:
+            pass
+        else:
+            self.simulation.reporters.append(reporter)

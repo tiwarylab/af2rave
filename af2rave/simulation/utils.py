@@ -2,7 +2,8 @@ import openmm.app as app
 from openmm.unit import angstrom, molar
 
 import pdbfixer
-from . import DefaultForcefield
+from . import Charmm36mFF
+
 
 class TopologyMap:
 
@@ -60,14 +61,14 @@ class TopologyMap:
             elif isinstance(index, list):
                 return [self.map_atom_index(i) for i in index]
         except KeyError as e:
-            raise ValueError("Atom index not found in the topology.") from e
+            raise ValueError(f"Atom index {e} in the new topology does "
+                             "not exist in the old topology.") from e
 
 
 class SimulationBox:
 
     def __init__(self, filename: str,
-                 forcefield: app.ForceField = DefaultForcefield,
-                 **kwargs):
+                 forcefield: app.ForceField = Charmm36mFF):
         '''
         Create a simulation box from a protein PDB box.
 
@@ -138,6 +139,8 @@ class SimulationBox:
 
         self.top = modeller.topology
         self.pos = modeller.positions
+
+        # initialize a mapping object
         self.top_map = TopologyMap(app.PDBFile(self._filename).topology, self.top)
         self.map_atom_index = self.top_map.map_atom_index
 
@@ -155,5 +158,5 @@ class SimulationBox:
 
     def __str__(self):
         return (f"SimulationBox('{self._filename}') at pH {self.pH}. "
-        f"Solvated: {self.padding} {self.water_model} water "
-        f"with {self.ionic_strength} {self.positive_ion}{self.negative_ion} ions.")
+                f"Solvated: {self.padding} {self.water_model} water "
+                f"with {self.ionic_strength} {self.positive_ion}{self.negative_ion} ions.")
