@@ -1,0 +1,15 @@
+channels:
+  - conda-forge
+  - bioconda
+  - pytorch
+  - nvidia
+dependencies:
+  - python>3.10
+  - pytorch::pytorch
+  - openmm>8
+  - pdbfixer
+  - mdtraj
+  - numpy
+  - scikit-learn
+  - typer
+  - numba
