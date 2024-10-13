@@ -146,7 +146,7 @@ class SimulationBox:
 
         return modeller.positions, modeller.topology
 
-    def write_pdb(self, filename: str):
+    def save_pdb(self, filename: str):
         """
         Write the simulation box to a pdb file.
 

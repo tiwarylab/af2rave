@@ -1,5 +1,7 @@
 '''
-The OpenMM simulation package for AF2RAVE.
+The simulation module for AF2RAVE performs molecular dynamics simulations.
+This module is mostly a wrapper around OpenMM, and provides utilies that create
+simulation boxes, run simulations, and analyze trajectories.
 '''
 
 import openmm.app as app

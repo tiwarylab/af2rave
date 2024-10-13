@@ -1,8 +1,7 @@
 '''
-The simulation module for AF2RAVE performs molecular dynamics simulations.
-This module is mostly a wrapper around OpenMM, and provides utilies that create
-simulation boxes, run simulations, and analyze trajectories.
+The UnbiasedSimulation class for running MD simulations.
 '''
+
 import os
 from sys import stdout
 from pathlib import Path
@@ -32,8 +31,8 @@ class UnbiasedSimulation():
 
         :param pdb_file: Path to OpenMM.app.pdbfile.PDBFile object
         :type pdb_file: str
-        :param list_of_indexes: List of indexes to calculate the CVs
-        :type list_of_indexes: list[tuple[int, int]]
+        :param list_of_index: List of indexes to calculate the CVs
+        :type list_of_index: list[tuple[int, int]]
         :param forcefield: OpenMM.app.ForceField object. Default: Charmm36mFF
         :type forcefield: OpenMM.app.ForceField
         :param temp: Temperature of the system. Default: 310 K
@@ -127,12 +126,12 @@ class UnbiasedSimulation():
         :param steps: Number of steps to run the simulation.
             Default: 50 million steps (100 ns)
         :type steps: int
-        :param restart_file: Name of the checkpoint file. Default: {prefix}_out.chk
+        :param restart_file: Name of the checkpoint file. Default: {prefix}.chk
         :type restart_file: str
         '''
 
         if restart_file is None:
-            restart_file = f"{self._prefix}_out.chk"
+            restart_file = self._prefix + ".chk"
             print(f"No restart file provided. Attempting from default {restart_file}.")
 
         if not os.path.exists(restart_file):
@@ -256,13 +255,13 @@ class UnbiasedSimulation():
         if "cv_reporter" in kwargs:
             return kwargs["cv_reporter"]
 
-        list_of_indices = kwargs.get('list_of_indices', None)
+        list_of_index = kwargs.get('list_of_index', None)
 
-        if list_of_indices is not None:
+        if list_of_index is not None:
             cv_file = kwargs.get('cv_file', "COLVAR.dat")
             cv_freq = kwargs.get('cv_freq', 50)
             append = kwargs.get('append', False)
-            return CVReporter(cv_file, cv_freq, list_of_indices, append)
+            return CVReporter(cv_file, cv_freq, list_of_index, append)
 
         print("No atom indices provided. Will not output CV timeseries.")
         return None
@@ -278,7 +277,7 @@ class UnbiasedSimulation():
         if "xtc_reporter" in kwargs:
             return kwargs["xtc_reporter"]
         else:
-            xtc_file = kwargs.get('xtc_file', "traj.xtc")
+            xtc_file = kwargs.get('xtc_file', self._prefix + ".xtc")
             xtc_freq = kwargs.get('xtc_freq', 1000)
 
             # We will allow the user to suppress trajectory writing by setting
