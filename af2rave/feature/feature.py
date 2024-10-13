@@ -13,7 +13,7 @@ class Feature(object):
         if n_atoms != 2:
             raise ValueError(f"Accept only two atoms as atom_pairs. Got {n_atoms}")
         else:
-            self._ap = atom_pair
+            self._ap = tuple(map(int, atom_pair))
         self._top = top
         self._ts = ts
 

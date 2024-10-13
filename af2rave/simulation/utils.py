@@ -1,7 +1,9 @@
 import openmm.app as app
 from openmm.unit import angstrom, molar
 
+import numpy as np
 import pdbfixer
+
 from . import Charmm36mFF
 
 
@@ -54,16 +56,15 @@ class TopologyMap:
         :type index: AtomIndexLike: int or set[int] or list[int] or list[set[int]]
         '''
         try:
-            if isinstance(index, int):
-                return self._atom_index_map[index]
-            elif isinstance(index, set):
+            if isinstance(index, set):
                 return {self._atom_index_map(i) for i in index}
             elif isinstance(index, tuple):
                 return tuple(self.map_atom_index(i) for i in index)
             elif isinstance(index, list):
                 return [self.map_atom_index(i) for i in index]
             else:
-                raise ValueError(f"Unrecognized type {type(index)} for index.")
+                # mostly likely index is either an int or np.int64
+                return self._atom_index_map[int(index)]
         except KeyError as e:
             raise ValueError(f"Atom index {e} in the new topology does "
                              "not exist in the old topology.") from e
