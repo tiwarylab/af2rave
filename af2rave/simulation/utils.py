@@ -57,9 +57,13 @@ class TopologyMap:
             if isinstance(index, int):
                 return self._atom_index_map[index]
             elif isinstance(index, set):
-                return {self._atom_index_map[i] for i in index}
+                return {self._atom_index_map(i) for i in index}
+            elif isinstance(index, tuple):
+                return tuple(self.map_atom_index(i) for i in index)
             elif isinstance(index, list):
                 return [self.map_atom_index(i) for i in index]
+            else:
+                raise ValueError(f"Unrecognized type {type(index)} for index.")
         except KeyError as e:
             raise ValueError(f"Atom index {e} in the new topology does "
                              "not exist in the old topology.") from e
