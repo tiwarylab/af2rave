@@ -89,6 +89,8 @@ class UnbiasedSimulation():
             self.simulation.context.getSystem().addForce(
                 openmm.MonteCarloBarostat(self._pressure, self._temp)
             )
+#            self.simulation.context.reinitialize(preserveState=True)
+            self.simulation.context.reinitialize()
 
     @property
     def pos(self):
@@ -107,13 +109,11 @@ class UnbiasedSimulation():
         :type restart: bool
         '''
 
-        self.simulation.context.setPositions(self._pos)
-
         # we have to do this at this later stage, because by design we
         # do not know the number of steps at the time of initialization
         self._add_reporter(self._get_thermo_reporter(steps))
 
-        self.simulation.context.reinitialize(preserveState=True)
+        self.simulation.context.setPositions(self._pos)
         self.simulation.minimizeEnergy()
         self.simulation.step(steps)
 
@@ -138,9 +138,8 @@ class UnbiasedSimulation():
             raise FileNotFoundError("Checkpoint file does not exist")
         self.simulation.loadCheckpoint(restart_file)
 
-        self.simulation.reporters.append(self._get_thermo_reporter(steps))
+        self._add_reporter(self._get_thermo_reporter(steps))
 
-        self.simulation.context.reinitialize(preserveState=True)
         self.simulation.step(steps)
 
         return self.simulation
