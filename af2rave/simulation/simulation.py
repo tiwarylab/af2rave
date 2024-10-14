@@ -80,7 +80,7 @@ class UnbiasedSimulation():
         self._append = kwargs.get('append', False)
 
         # Reporters
-        self._progress_every = kwargs.get('progress_every', 1000)
+        self._progress_every = kwargs.get('progress_every', 1)
         self._add_reporter(self._get_cv_reporter(**kwargs))
         self._add_reporter(self._get_xtc_reporter(**kwargs))
 
@@ -89,7 +89,6 @@ class UnbiasedSimulation():
             self.simulation.context.getSystem().addForce(
                 openmm.MonteCarloBarostat(self._pressure, self._temp)
             )
-#            self.simulation.context.reinitialize(preserveState=True)
             self.simulation.context.reinitialize()
 
     @property
@@ -130,16 +129,8 @@ class UnbiasedSimulation():
         :type restart_file: str
         '''
 
-        if restart_file is None:
-            restart_file = self._prefix + ".chk"
-            print(f"No restart file provided. Attempting from default {restart_file}.")
-
-        if not os.path.exists(restart_file):
-            raise FileNotFoundError("Checkpoint file does not exist")
-        self.simulation.loadCheckpoint(restart_file)
-
+        self._load_checkpoint(restart_file)
         self._add_reporter(self._get_thermo_reporter(steps))
-
         self.simulation.step(steps)
 
         return self.simulation
@@ -168,6 +159,27 @@ class UnbiasedSimulation():
             # Note that this pos has no underscore, so it will call the property
             # and get the latest positions from the simulation context
             app.PDBFile.writeFile(self._top, self.pos, ofs, keepIds=True)
+
+    def _load_checkpoint(self, restart_file: str):
+        '''
+        Load the checkpoint of the simulation.
+
+        :param filename: Name of the checkpoint file.
+        :type filename: str
+        '''
+
+        if restart_file is None:
+            restart_file = self._prefix + ".chk"
+            print(f"No restart file provided. Attempting from default {restart_file}.")
+
+        if not os.path.exists(restart_file):
+            raise FileNotFoundError("Checkpoint file does not exist")
+
+        if restart_file.endswith(".chk"):
+            self.simulation.loadCheckpoint(restart_file)
+        elif restart_file.endswith(".pdb"):
+            pdb = app.PDBFile(restart_file)
+            self.simulation.context.setPositions(pdb.positions)
 
     def _initialize_simulation(self, **kwargs) -> app.Simulation:
         '''
@@ -220,12 +232,11 @@ class UnbiasedSimulation():
         for i, plt in enumerate(selection):
             if plt in platform_names:
                 print(f"Using {plt} platform.")
-                my_platform = platforms[i]
+                return platforms[i]
                 break
-        if my_platform is None:
-            raise RuntimeError("No suitable platform found. Attempted: CUDA, OpenCL, CPU")
-
-        return my_platform
+        
+        # if the code reaches here something is wrong
+        raise RuntimeError("No suitable platform found. Attempted: CUDA, OpenCL, CPU")
 
     def _get_thermo_reporter(self, steps: int):
         '''
