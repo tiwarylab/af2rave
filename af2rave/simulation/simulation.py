@@ -7,7 +7,7 @@ from sys import stdout
 from pathlib import Path
 
 from mdtraj.reporters import XTCReporter
-from .cv_reporter import CVReporter
+from .reporter import CVReporter
 from . import Charmm36mFF
 
 import openmm
@@ -111,9 +111,12 @@ class UnbiasedSimulation():
         # we have to do this at this later stage, because by design we
         # do not know the number of steps at the time of initialization
         self._add_reporter(self._get_thermo_reporter(steps))
-
         self.simulation.context.setPositions(self._pos)
-        self.simulation.minimizeEnergy()
+
+        from .reporter import MinimizationReporter
+
+        self.simulation.minimizeEnergy(maxIterations=100, reporter=MinimizationReporter())
+        self.save_checkpoint(self._prefix + "_minimized.chk")
         self.simulation.step(steps)
 
         return self.simulation
