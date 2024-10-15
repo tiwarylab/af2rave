@@ -63,7 +63,7 @@ class CVReporter(object):
 # The class can have any name but it must subclass MinimizationReporter.
 class MinimizationReporter(openmm.MinimizationReporter):
 
-    def __init__(self, maxIter: int = 100):
+    def __init__(self, maxIter: int = 500):
         super().__init__()
         self._maxIter = maxIter
         self._round = 1

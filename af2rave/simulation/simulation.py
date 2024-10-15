@@ -115,7 +115,7 @@ class UnbiasedSimulation():
 
         from .reporter import MinimizationReporter
         self.simulation.minimizeEnergy(
-            maxIterations=200, reporter=MinimizationReporter(200)
+            maxIterations=500, reporter=MinimizationReporter(500)
         )
         self.save_pdb(self._prefix + "_minimized.pdb")
         self.simulation.step(steps)
