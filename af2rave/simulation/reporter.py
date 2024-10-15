@@ -63,6 +63,12 @@ class CVReporter(object):
 # The class can have any name but it must subclass MinimizationReporter.
 class MinimizationReporter(openmm.MinimizationReporter):
 
+    def __init__(self, maxIter: int = 500):
+        super().__init__()
+        self._maxIter = maxIter
+        self._round = 1
+        print("Minimizing using maxIteration per epoch: ", self._maxIter)
+
     # you must override the report method and it must have this signature.
     def report(self, iteration, x, grad, args):
         '''
@@ -82,24 +88,21 @@ class MinimizationReporter(openmm.MinimizationReporter):
                                (potential energy plus restraint energy) with 
                                respect to the particle coordinates, in flattened order.
 
-            args (dict): Additional statistics described above about the current state of minimization. 
-                         In particular:
-                         “system energy”: the current potential energy of the system
-                         “restraint energy”: the energy of the harmonic restraints
-                         “restraint strength”: the force constant of the restraints (in kJ/mol/nm^2)
-                         “max constraint error”: the maximum relative error in the length of any constraint
+            args (dict): Additional statistics  about the current state of minimization. 
+                In particular:
+                "system energy": the current potential energy of the system
+                "restraint energy": the energy of the harmonic restraints
+                "restraint strength": the force constant of the restraints (in kJ/mol/nm^2)
+                "max constraint error": the maximum relative error in the length of any constraint
 
         Returns:
             bool : Specify if minimization should be stopped.
         '''
 
-        # Within the report method you write the code you want to be executed at 
-        # each iteration of the minimization.
-        # In this example we get the current energy, print it to the screen, and save it to an array. 
+        if iteration == self._maxIter - 1:
+            print(f"Minimization epoch {self._round}, "
+                  f"constraint k = {args['restraint strength']:.2e}. "
+                  f"Max constraint error: {args['max constraint error']:.5e}")
+            self._round += 1
 
-        current_energy = args['system energy']
-        print(f"iteration: {iteration}, energy: {current_energy}")
-
-        # The report method must return a bool specifying if minimization should be stopped. 
-        # You can use this functionality for early termination.
         return False

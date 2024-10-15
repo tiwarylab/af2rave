@@ -80,7 +80,7 @@ class UnbiasedSimulation():
         self._append = kwargs.get('append', False)
 
         # Reporters
-        self._progress_every = kwargs.get('progress_every', 1)
+        self._progress_every = kwargs.get('progress_every', 1000)
         self._add_reporter(self._get_cv_reporter(**kwargs))
         self._add_reporter(self._get_xtc_reporter(**kwargs))
 
@@ -114,9 +114,10 @@ class UnbiasedSimulation():
         self.simulation.context.setPositions(self._pos)
 
         from .reporter import MinimizationReporter
-
-        self.simulation.minimizeEnergy(maxIterations=100, reporter=MinimizationReporter())
-        self.save_checkpoint(self._prefix + "_minimized.chk")
+        self.simulation.minimizeEnergy(
+            maxIterations=500, reporter=MinimizationReporter(500)
+        )
+        self.save_pdb(self._prefix + "_minimized.pdb")
         self.simulation.step(steps)
 
         return self.simulation
@@ -230,13 +231,11 @@ class UnbiasedSimulation():
         platform_names = [platform.getName() for platform in platforms]
 
         # We will use platforms in the following order
-        my_platform = None
         selection = ["CUDA", "OpenCL", "CPU"]
-        for i, plt in enumerate(selection):
+        for plt in selection:
             if plt in platform_names:
                 print(f"Using {plt} platform.")
-                return platforms[i]
-                break
+                return platforms[platform_names.index(plt)]
         
         # if the code reaches here something is wrong
         raise RuntimeError("No suitable platform found. Attempted: CUDA, OpenCL, CPU")
@@ -298,7 +297,7 @@ class UnbiasedSimulation():
             if (xtc_file is None) or (xtc_freq is None):
                 return None
 
-            return XTCReporter(xtc_file, xtc_freq, self._append)
+            return XTCReporter(xtc_file, xtc_freq, append=self._append)
 
     def _get_pressure(self, **kwargs):
         '''
