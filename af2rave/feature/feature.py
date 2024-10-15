@@ -16,13 +16,16 @@ class Feature(object):
             self._ap = tuple(map(int, atom_pair))
         self._top = top
         self._ts = ts
+        self._atom_i = self._top.atom(self._ap[0])
+        self._atom_j = self._top.atom(self._ap[1])
 
     @cached_property
     def name(self):
-        i, j = self._ap
-        resname_i = str(self._top.atom(i))
-        resname_j = str(self._top.atom(j))
-        return f"{resname_i}_{resname_j}"
+        resname_i = str(self._atom_i)
+        resname_j = str(self._atom_j)
+        chain_i = self._atom_i.residue.chain.chain_id
+        chain_j = self._atom_j.residue.chain.chain_id
+        return f"{resname_i}{chain_i}_{resname_j}{chain_j}"
     
     @property
     def ap(self):
@@ -54,18 +57,21 @@ class Feature(object):
 
         script = ""
 
-        i, j = self._ap
-        resid_i = self._top.atom(i).residue.index + 1
-        resid_j = self._top.atom(j).residue.index + 1
-        atom_name_i = self._top.atom(i).name
-        atom_name_j = self._top.atom(j).name
+        chain_i = self._atom_i.residue.chain.chain_id
+        chain_j = self._atom_j.residue.chain.chain_id
+        resid_i = self._atom_i.residue.resSeq
+        resid_j = self._atom_j.residue.resSeq
+        atom_name_i = self._atom_i.name
+        atom_name_j = self._atom_j.name
 
-        script += f"distance :{resid_i}@{atom_name_i} :{resid_j}@{atom_name_j}\n"
+        script += ("distance "
+                   f"/{chain_i}:{resid_i}@{atom_name_i} "
+                   f"/{chain_j}:{resid_j}@{atom_name_j}\n")
 
         if atom_name_i != "CA":
-            script += f"show :{resid_i} a\n"
+            script += f"show /{chain_i}:{resid_i} a\n"
         if atom_name_j != "CA":
-            script += f"show :{resid_j} a\n"
+            script += f"show /{chain_j}:{resid_j} a\n"
 
         return script
 

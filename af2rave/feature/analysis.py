@@ -123,7 +123,7 @@ class FeatureSelection(object):
         self.features = {}
         self.names = ["" for _ in atom_pairs]
         for i, ap in enumerate(atom_pairs):
-            f = Feature(ap, self.traj.top, pw_dist[:, i])
+            f = Feature(ap, self.ref.top, pw_dist[:, i])
             self.features[f.name] = f
             self.names[i] = f.name
 
