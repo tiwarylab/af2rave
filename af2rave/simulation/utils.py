@@ -124,6 +124,20 @@ class SimulationBox:
         # create modeller instance
         modeller = app.Modeller(fixer.topology, fixer.positions)
 
+        ''' 
+        PDB fixer automatically add disulfide bonds when two cys-S are close.
+        First, this may not always be the case. Second, this behavior is not 
+        verbose in AMBER ffs as they actually have the CYM residue for disulfide-
+        bonded CYS. Meanwhile, CHARMM ffs do not have CYM and modeller will
+        complain. We will remove the disulfide bond here.
+        '''
+        disulfide_bonds = []
+        for bond in modeller.topology.bonds():
+            if bond.atom1.name == 'SG' and bond.atom2.name == 'SG':
+                disulfide_bonds.append(bond)
+                print(f"Removed sulfide bond between {bond.atom1} and {bond.atom2}")
+        modeller.delete(disulfide_bonds)
+
         # add hydrogens
         self.pH = kwargs.get('pH', 7.0)
         modeller.addHydrogens(self._forcefield, pH=self.pH)
