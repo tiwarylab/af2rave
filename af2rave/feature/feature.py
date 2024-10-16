@@ -21,11 +21,20 @@ class Feature(object):
 
     @cached_property
     def name(self):
-        resname_i = str(self._atom_i)
-        resname_j = str(self._atom_j)
-        chain_i = self._atom_i.residue.chain.chain_id
-        chain_j = self._atom_j.residue.chain.chain_id
-        return f"{resname_i}{chain_i}_{resname_j}{chain_j}"
+
+        residue_i = self._atom_i.residue
+        residue_j = self._atom_j.residue
+
+        chain_i = residue_i.chain.chain_id
+        chain_j = residue_j.chain.chain_id
+        resid_i = residue_i.resSeq
+        resid_j = residue_j.resSeq
+        resname_i = residue_i.name
+        resname_j = residue_j.name
+        atom_name_i = self._atom_i.name
+        atom_name_j = self._atom_j.name
+
+        return f"{resname_i}{resid_i}{chain_i}-{atom_name_i}_{resname_j}{resid_j}{chain_j}-{atom_name_j}"
     
     @property
     def ap(self):

@@ -231,7 +231,7 @@ class FeatureSelection(object):
         :return center_id: np.ndarray: The indices of the cluster centers.
         '''
 
-        z = self.feature_array
+        z = np.array([self.features[fn].ts for fn in feature_name]).T
         npoints = z.shape[0]
 
         # Reshuffle the data with a random permutation, but keep the first element fixed
