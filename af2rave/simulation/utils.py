@@ -1,4 +1,5 @@
 import openmm.app as app
+import openmm.unit as unit
 from openmm.unit import angstrom, molar
 
 import numpy as np
@@ -148,6 +149,12 @@ class SimulationBox:
         self.positive_ion = kwargs.get('positiveIon', 'Na+')
         self.negative_ion = kwargs.get('negativeIon', 'Cl-')
         self.ionic_strength = kwargs.get('ionicStrength', 0.0 * molar)
+
+        if not unit.is_quantity(self.padding):
+            self.padding *= angstrom
+        if not unit.is_quantity(self.ionic_strength):
+            self.ionic_strength *= molar
+
         modeller.addSolvent(self._forcefield,
                             padding=self.padding,
                             model=self.water_model,
