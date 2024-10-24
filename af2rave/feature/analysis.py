@@ -1,5 +1,7 @@
 '''Feature analysis module for AF2RAVE'''
-
+import os
+import glob
+from natsort import natsorted
 import numpy as np
 import mdtraj as md
 from numba import njit
@@ -12,7 +14,7 @@ class FeatureSelection(object):
                  pdb_name: list[str],
                  ref_pdb: str = None) -> None:
         '''
-        Initialize the FeatureAnalysis object. 
+        Initialize the FeatureSelection object. 
 
         :param pdb_name: The name(s) of the PDB file from reduced MSA.
         :type pdb_name: list[str]
@@ -22,21 +24,21 @@ class FeatureSelection(object):
         :param align_by: str: The selection string used to align the trajectories.
         '''
 
-        # Store the pdb name as labels
-        self.pdb_name = pdb_name
+        if os.path.isdir(pdb_name):   # If a folder is provided, load all in the folder
+            self.pdb_name = natsorted(glob.glob(os.path.join(pdb_name, "*.pdb")))
+        elif not isinstance(pdb_name, list):
+            self.pdb_name = [pdb_name]
+        else:
+            self.pdb_name = pdb_name
+
         if ref_pdb is None:
-            self.ref_pdb = pdb_name[0]
+            self.ref_pdb = self.pdb_name[0]
         else:
             self.ref_pdb = ref_pdb
 
         # MDtraj objects
         self.traj = md.load(self.pdb_name)
         self.ref = md.load(self.ref_pdb)
-
-        ca_rmsd = self.get_rmsd("name CA")
-        rmsd_rank = np.argsort(ca_rmsd)
-        self.traj = md.join([self.traj[i] for i in rmsd_rank])
-        self.pdb_name = [self.pdb_name[i] for i in rmsd_rank]
 
         # these two will be populated by the rank_features method
         self.names = None
