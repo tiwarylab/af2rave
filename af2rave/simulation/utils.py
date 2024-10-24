@@ -1,5 +1,6 @@
 import openmm.app as app
 import openmm.unit as unit
+import mdtraj as md
 from openmm.unit import angstrom, molar
 
 import numpy as np
@@ -7,12 +8,39 @@ import pdbfixer
 
 from . import Charmm36mFF
 
+type AtomIndexLike = int | set[int] | list[int] | list[set[int]]
+type TopologyLike = app.Topology | md.Topology | str
 
 class TopologyMap:
 
-    def __init__(self, old_top: app.Topology, new_top: app.Topology):
-        self._old_top = old_top
-        self._new_top = new_top
+    def __init__(self, old_top: TopologyLike, new_top: TopologyLike):
+        '''
+        Create a mapping between the old and new topology.
+        
+        :param old_top: old topology, either a path or an OpenMM or MDTraj topology object
+        :type old_top: app.Topology or md.Topology or str
+        :param new_top: new topology, either a path or an OpenMM or MDTraj topology object
+        :type new_top: app.Topology or md.Topology or str
+        '''
+
+        if isinstance(old_top, str):
+            self._old_top = app.PDBFile(old_top).topology
+        elif isinstance(old_top, md.Topology):
+            self._old_top = old_top.to_openmm()
+        elif isinstance(old_top, app.Topology):
+            self._old_top = old_top
+        else:
+            raise ValueError("old_top must be a path to a PDB file or an OpenMM or MDTraj topology object.")
+        
+        if isinstance(new_top, str):
+            self._new_top = app.PDBFile(new_top).topology
+        elif isinstance(new_top, md.Topology):
+            self._new_top = new_top.to_openmm()
+        elif isinstance(new_top, app.Topology):
+            self._new_top = new_top
+        else:
+            raise ValueError("new_top must be a path to a PDB file or an OpenMM or MDTraj topology object.")
+
         self._atom_index_map = self._generate_mapping_table()
 
     def _generate_mapping_table(self):
@@ -43,8 +71,6 @@ class TopologyMap:
                 pass
 
         return forward_map
-
-    type AtomIndexLike = int | set[int] | list[int] | list[set[int]]
 
     def map_atom_index(self, index: AtomIndexLike) -> AtomIndexLike:
         '''
