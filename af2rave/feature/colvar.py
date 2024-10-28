@@ -44,7 +44,7 @@ class Colvar():
             f.write("#! FIELDS ")
             f.write(" ".join(self._header))
             f.write("\n")
-            np.savetxt(f, self._data, fmt="%.6f")
+            np.savetxt(f, self._data.T, fmt="%.6f")
 
     # several helper functions to help with appending operations
     # ---------------------------------------------------------
@@ -64,7 +64,7 @@ class Colvar():
         arg_arr = np.zeros(len(base), dtype=int)
         for i, k in enumerate(base):
             if k in new:
-                arg_arr[base.index(i)] = i
+                arg_arr[new.index(k)] = i
             else:
                 return None
         return arg_arr
@@ -87,13 +87,21 @@ class Colvar():
         self._header += data.header
         self._data = np.append(self._data, data._data, axis=0)
         
-    def choose(self, columns: list):
+    def choose(self, columns: list, keep_t = True):
         '''
         Choose the columns from the data. Returns a copy including the time.
         '''
+
+        new_colvar = Colvar()
         index = [self._header.index(i) for i in columns]
-        self._header = columns
-        self._data = self._data[:, index]
+
+        if keep_t:
+            index = [0] + index
+            new_colvar._header = ["time"] + columns
+        else:
+            new_colvar._header = columns
+        new_colvar._data = self._data[index]
+        return new_colvar
     
     @property
     def header(self):
@@ -110,16 +118,18 @@ class Colvar():
 
     def __getitem__(self, key):
         if key in self._header:
-            return self._data[:, self._header.index(key)]
+            return self._data[self._header.index(key)]
         else:
             raise KeyError(f"{key} does not exist.")
     
     def __setitem__(self, key, value):
+        if len(value) != self.shape[1]:
+            raise ValueError("The incoming data does not have the same number of entries as the base data.")
         if key not in self._header:
             self._header.append(key)
-            self._data = np.append(self._data, np.zeros((self._data.shape[0], 1)), axis=0)
+            self._data = np.append(self._data, value.reshape(1, -1), axis=0)
         else:
-            self._data[:, self._header.index(key)] = value
+            self._data[self._header.index(key)] = value
     
     def __delitem__(self, key):
         if key in self._header:
