@@ -8,3 +8,4 @@ https://aip.scitation.org/doi/abs/10.1063/5.0038198
 """
 
 from .wrapper import *
+from . import cli

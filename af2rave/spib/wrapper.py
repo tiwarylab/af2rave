@@ -44,14 +44,22 @@ def spib(traj_data_list: list[torch.Tensor],
 
     output_dim = traj_labels_list[0].shape[1]
 
+    os.makedirs(os.path.dirname(base_path), exist_ok=True)
+    if traj_weights_list is None:
+        base_path = os.path.join(base_path, "Unweighted")
+    else:
+        base_path = os.path.join(base_path, "Weighted")
+
     final_result_path = base_path + '_result.dat'
-    os.makedirs(os.path.dirname(final_result_path), exist_ok=True)
     with open(final_result_path, 'w') as f:
         f.write("Final Result\n")
 
     np.random.seed(seed)
     torch.manual_seed(seed)
     random.seed(seed)
+
+    if isinstance(dt_list, (float, int)):
+        dt_list = [dt_list]
 
     for dt in dt_list:
         data_init_list = []
@@ -73,7 +81,8 @@ def spib(traj_data_list: list[torch.Tensor],
         test_future_data = torch.cat([dat[6] for dat in data_init_list], dim=0)
         test_data_labels = torch.cat([dat[7] for dat in data_init_list], dim=0)
 
-        output_path = base_path + f"_d={RC_dim}_t={dt}_b={beta:.4f}_learn={learning_rate}"
+#        output_path = base_path + f"_d={RC_dim}_t={dt}_b={beta:.4f}_learn={learning_rate}"
+        output_path = base_path + f"_dt_{dt}"
 
         IB = SPIB.SPIB(encoder_type, RC_dim, output_dim, data_shape, device,
                        UpdateLabel, neuron_num1, neuron_num2)

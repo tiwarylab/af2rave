@@ -7,11 +7,10 @@ import numpy as np
 import torch
 import os
 
-import typer
 from typer import Option, Argument
 from typing import Annotated
 
-from wrapper import spib
+from .wrapper import spib
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 default_device = torch.device("cpu")
@@ -40,9 +39,6 @@ def main(traj: Annotated[str, Argument(help="Path to the trajectory data. Can be
          UpdateLabel: Annotated[bool, Option("--update-label", help="Whether update the labels during the training process")] = True,
          SaveTrajResults: Annotated[bool, Option("--save-traj-results", help="Whether save trajectory results")] = True):
 
-    # By default, we save all the results in subdirectories of the following path.
-    base_path = "SPIB"
-
     # parse the input arguments
     traj = traj.split(',')
     label = label.split(',')
@@ -67,7 +63,3 @@ def main(traj: Annotated[str, Argument(help="Path to the trajectory data. Can be
          threshold, patience, refinements, log_interval,
          lr_scheduler_step_size, lr_scheduler_gamma, learning_rate,
          beta, seed, UpdateLabel, SaveTrajResults)
-
-
-if __name__ == '__main__':
-    typer.run(main)
