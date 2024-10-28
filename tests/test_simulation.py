@@ -28,6 +28,9 @@ class TestPreparation:
     def test_mapping_list(self):
         assert self.simbox.map_atom_index([1000, 1001]) == [2019, 2020]
         assert self.simbox.map_atom_index([{1000, 1001}]) == [{2019, 2020}]
+    
+    def test_mapping_tuple(self):
+        assert self.simbox.map_atom_index((1000, 1001)) == (2019, 2020)
 
     def test_mapping_error(self):
         with pytest.raises(ValueError):
