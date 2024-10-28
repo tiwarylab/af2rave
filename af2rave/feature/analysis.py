@@ -24,10 +24,11 @@ class FeatureSelection(object):
         :param align_by: str: The selection string used to align the trajectories.
         '''
 
-        if os.path.isdir(pdb_name):   # If a folder is provided, load all in the folder
-            self.pdb_name = natsorted(glob.glob(os.path.join(pdb_name, "*.pdb")))
-        elif not isinstance(pdb_name, list):
-            self.pdb_name = [pdb_name]
+        if not isinstance(pdb_name, list):
+            if os.path.isdir(pdb_name):   # If a folder is provided, load all in the folder
+                self.pdb_name = natsorted(glob.glob(os.path.join(pdb_name, "*.pdb")))
+            else:
+                self.pdb_name = [pdb_name]
         else:
             self.pdb_name = pdb_name
 
