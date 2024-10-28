@@ -9,6 +9,7 @@ class Colvar():
     def __init__(self, filename = None):
         self._filename = None
         self._header = []
+        self._time = None
         self._data = np.array([])
         
         if filename is not None:
@@ -27,24 +28,41 @@ class Colvar():
     
     def stride(self, interval: int):
         self._data = self._data[::interval]
+        self._time = self._time[::interval]
         return self
 
-    def read(self, filename: str, stride: int= 1):
+    def read(self, filename: str, stride: int = 1):
 
         self._filename = filename
         self._header = self._get_header_from_file()
 
-        self._data = np.loadtxt(self._filename, unpack=True)[::stride]
+        self._data = np.loadtxt(self._filename, unpack=True)
         if self.shape[0] != len(self._header):
             raise ValueError("Number of columns in the file does not match the number of headers."
                              f"Got {self.shape[0]} columns and {len(self._header)} headers.")
+        
+        if "time" in self._header:
+            idx = self._header.index("time")
+            self._time = self._data[idx]
+            self._data = np.delete(self._data, idx, axis=0)
+            self._header.pop(idx)
 
-    def write(self, filename):
+        # stride the data
+        if stride > 1:
+            self.stride(stride)
+
+    def write(self, filename, with_time = True):
         with open(filename, "w") as f:
-            f.write("#! FIELDS ")
-            f.write(" ".join(self._header))
-            f.write("\n")
-            np.savetxt(f, self._data.T, fmt="%.6f")
+            if with_time and self._time is not None:
+                f.write("#! FIELDS time ")
+                f.write(" ".join(self._header))
+                f.write("\n")
+                np.savetxt(f, np.vstack((self._time, self._data)).T, fmt="%.6f")
+            else:
+                f.write("#! FIELDS ")
+                f.write(" ".join(self._header))
+                f.write("\n")
+                np.savetxt(f, self._data.T, fmt="%.6f")
 
     # several helper functions to help with appending operations
     # ---------------------------------------------------------
@@ -77,6 +95,7 @@ class Colvar():
             raise ValueError("The incoming data does not contain all the columns of the base data.")
         
         self._data = np.append(self._data, data._data[index], axis=1)
+        self._time = np.append(self._time, data._time)
         return self
 
     def kappend(self, data: 'Colvar'):
@@ -87,22 +106,20 @@ class Colvar():
         self._header += data.header
         self._data = np.append(self._data, data._data, axis=0)
         
-    def choose(self, columns: list, keep_t = True):
+    def choose(self, columns: list):
         '''
         Choose the columns from the data. Returns a copy including the time.
         '''
 
         new_colvar = Colvar()
-        index = [self._header.index(i) for i in columns]
+        new_colvar._time = self._time
 
-        if keep_t:
-            index = [0] + index
-            new_colvar._header = ["time"] + columns
-        else:
-            new_colvar._header = columns
+        index = [self._header.index(i) for i in columns]
+        new_colvar._header = columns
         new_colvar._data = self._data[index]
+
         return new_colvar
-    
+
     @property
     def header(self):
         return self._header

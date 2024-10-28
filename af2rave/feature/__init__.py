@@ -2,4 +2,4 @@
 
 from .feature import *
 from .analysis import *
-from . import amino
+from ..amino import amino

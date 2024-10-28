@@ -4,7 +4,7 @@ import numpy as np
 import os
 
 DAT_LENGTH = 1001
-DAT_COL = 429
+DAT_COL = 428
 
 def check_reproduce(colvar):
     colvar.write("./tests/test_colvars/test.dat")
@@ -36,7 +36,7 @@ def test_shape():
 def test_header():
     colvar = Colvar("./tests/test_colvars/base.dat")
     assert colvar.header == colvar._header
-    assert colvar.header[0:4] == ["time", "d5_1664", "d5_1665", "d5_1666"]
+    assert colvar.header[0:3] == ["d5_1664", "d5_1665", "d5_1666"]
     assert len(colvar.header) == DAT_COL
 
 def test_write():
@@ -45,14 +45,7 @@ def test_write():
 
 def test_choose():
     colvar = Colvar("./tests/test_colvars/base.dat")
-    colvar2 = colvar.choose(["d5_1664", "d5_1665", "d5_1666"], keep_t=True)
-    assert colvar2.header == ["time", "d5_1664", "d5_1665", "d5_1666"]
-    assert colvar2.shape == (4, DAT_LENGTH)
-    check_reproduce(colvar2)
-
-def test_choose_notime():
-    colvar = Colvar("./tests/test_colvars/base.dat")
-    colvar2 = colvar.choose(["d5_1664", "d5_1665", "d5_1666"], keep_t=False)
+    colvar2 = colvar.choose(["d5_1664", "d5_1665", "d5_1666"])
     assert colvar2.header == ["d5_1664", "d5_1665", "d5_1666"]
     assert colvar2.shape == (3, DAT_LENGTH)
     check_reproduce(colvar2)
@@ -65,15 +58,15 @@ def test_tappend():
 
 def test_tappend_with_shorter():
     colvar = Colvar("./tests/test_colvars/base.dat")
-    colvar2 = colvar.choose(["d5_1664", "d5_1665", "d5_1666"], keep_t=True)
+    colvar2 = colvar.choose(["d5_1664", "d5_1665", "d5_1666"])
     with pytest.raises(ValueError):
         colvar.tappend(colvar2)
 
 def test_tappend_with_longer():
     colvar = Colvar("./tests/test_colvars/base.dat")
-    colvar2 = colvar.choose(["d5_1664", "d5_1665", "d5_1666"], keep_t=True)
+    colvar2 = colvar.choose(["d5_1664", "d5_1665", "d5_1666"])
     colvar2.tappend(colvar)
-    assert colvar2.shape == (4, 2 * DAT_LENGTH)
+    assert colvar2.shape == (3, 2 * DAT_LENGTH)
     check_reproduce(colvar2)
 
 def test_magic_contains():
@@ -83,7 +76,7 @@ def test_magic_contains():
 
 def test_magic_getitem():
     colvar = Colvar("./tests/test_colvars/base.dat")
-    assert np.allclose(colvar["d5_1664"], colvar._data[1])
+    assert np.allclose(colvar["d5_1664"], colvar._data[0])
     with pytest.raises(KeyError):
         colvar["pratyush"]
 
