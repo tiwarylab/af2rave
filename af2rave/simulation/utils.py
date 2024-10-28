@@ -84,7 +84,7 @@ class TopologyMap:
         '''
         try:
             if isinstance(index, set):
-                return {self._atom_index_map(i) for i in index}
+                return {self._atom_index_map[i] for i in index}
             elif isinstance(index, tuple):
                 return tuple(self.map_atom_index(i) for i in index)
             elif isinstance(index, list):
