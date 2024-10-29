@@ -7,3 +7,4 @@ __version__ = '0.1.0'
 from . import feature
 from . import simulation
 from . import spib
+from . import amino
