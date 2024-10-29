@@ -6,15 +6,15 @@ from .wrapper import AMINO
 from ..feature.colvar import Colvar
 
 
-def main(filename: Annotated[str, 
+def main(filename: Annotated[str,
             typer.Argument(help="Name of the COLVAR file containing the order parameters")],
-         n: Annotated[int, 
+         n: Annotated[int,
             typer.Option(help="Number of order parameters to be calculated")] = None,
-         bins: Annotated[int, 
+         bins: Annotated[int,
             typer.Option(help="Number of bins")] = 50,
-         kde_bandwidth: Annotated[float, 
+         kde_bandwidth: Annotated[float,
             typer.Option(help="Bandwidth for kernel density estimatio ")] = 0.02,
-         override: Annotated[bool, 
+         override: Annotated[bool,
             typer.Option(help=("By default the --n parameter is capped at 20."
                                "Using --override will default --n option "
                                "to the number of OPs in the input COLVAR file"))] = False):
@@ -37,7 +37,7 @@ def main(filename: Annotated[str,
     # initializing objects and run the code
     a = AMINO(n=n, bins=bins, kde_bandwidth=kde_bandwidth, verbose=True)
     result = a.from_colvar(colvar)
-    
+
     print(f"\n{len(result)} AMINO Order Parameters:")
     for i in result:
         print(i)

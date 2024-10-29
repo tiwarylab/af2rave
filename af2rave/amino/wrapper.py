@@ -31,15 +31,15 @@ class AMINO(object):
         if self._result is None:
             raise ValueError("Please run AMINO first.")
         return self._result
-    
+
     def _run_from_self(self):
-        ops = [amino.OrderParameter(l, d) for l, d in zip(self._label, self._data)]
+        ops = [amino.OrderParameter(ll, dd) for ll, dd in zip(self._label, self._data)]
         result = amino.find_ops(
-            ops, self._n, self._bins, 
+            ops, self._n, self._bins,
             bandwidth=self._kde_bandwidth, verbose=self._verbose
         )
         self._result = [i.name for i in result]
-    
+
     def from_timeseries(self, label, data):
 
         if len(label) != len(data):
@@ -51,7 +51,7 @@ class AMINO(object):
         self._run_from_self()
 
         return self.result
-    
+
     def from_colvar(self, colvar: 'Colvar') -> list[str]:
         '''
         Run AMINO from a Colvar object or a COLVAR file.
@@ -61,7 +61,7 @@ class AMINO(object):
         :return: List of AMINO order parameters.
         :rtype: list[str]
         '''
-            
+
         if isinstance(colvar, Colvar):
             self._colvar = colvar
         else:
@@ -74,7 +74,6 @@ class AMINO(object):
 
     def get_colvar(self):
         return self._colvar.choose(self.result)
-    
+
     def write_colvar(self, filename):
         self.get_colvar().write(filename)
-        

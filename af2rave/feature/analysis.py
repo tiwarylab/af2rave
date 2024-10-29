@@ -8,17 +8,18 @@ from numba import njit
 
 from .feature import Feature
 
+
 class FeatureSelection(object):
 
     def __init__(self,
                  pdb_name: list[str],
                  ref_pdb: str = None) -> None:
         '''
-        Initialize the FeatureSelection object. 
+        Initialize the FeatureSelection object.
 
         :param pdb_name: The name(s) of the PDB file from reduced MSA.
         :type pdb_name: list[str]
-        :param ref_pdb: The name of the reference structure. 
+        :param ref_pdb: The name of the reference structure.
             If none is provided, the first frame of the input PDB file will be used as the reference.
         :type ref_pdb: str
         :param align_by: str: The selection string used to align the trajectories.
@@ -48,7 +49,7 @@ class FeatureSelection(object):
     @property
     def feature_array(self):
         return np.array([self.features[fn].ts for fn in self.names]).T
-    
+
     def __len__(self):
         return len(self.pdb_name)
 
@@ -67,17 +68,17 @@ class FeatureSelection(object):
         try:
             atom_indices = self.ref.top.select(selection)
         except:
-            raise ValueError(f"Selection is invalid.")
+            raise ValueError("Selection is invalid.")
         assert len(atom_indices) > 1, f"Selection does not contain enough atoms ({len(atom_indices)})."
-        
+
         rmsd = md.rmsd(self.traj, self.ref, atom_indices=atom_indices) * 10
         return np.array(rmsd)
 
     def filter_by_rmsd(self, selection="name CA", rmsd_cutoff: float = 10.0) -> np.ndarray:
         '''
-        Filter structures with a RMSD cutoff. 
-        
-        Remove structures that are too irrelavant by dropping those with RMSD 
+        Filter structures with a RMSD cutoff.
+
+        Remove structures that are too irrelavant by dropping those with RMSD
         larger than a cutoff (in Angstrom). This modifies the trajectory in place.
 
         :param rmsd_cutoff: The RMSD cutoff value. Default: 10.0 Angstrom
@@ -101,8 +102,8 @@ class FeatureSelection(object):
     # ===== Feature selection =====
 
     def rank_feature(self,
-                    selection: str = "name CA"
-                    ) -> tuple[dict[Feature], list[str], np.array]:
+                     selection: str = "name CA"
+                     ) -> tuple[dict[Feature], list[str], np.array]:
         '''
         Rank the features by the coefficient of variation.
 
@@ -117,7 +118,7 @@ class FeatureSelection(object):
         try:
             atom_index = self.traj.top.select(selection)
         except:
-            raise ValueError(f"Selection is invalid.")
+            raise ValueError("Selection is invalid.")
         assert len(atom_index) > 1, f"Selection does not contain enough atoms ({len(atom_index)})."
 
         atom_pairs = list(combinations(atom_index, 2))
@@ -131,7 +132,7 @@ class FeatureSelection(object):
             self.names[i] = f.name
 
         # sort the features by coefficient of variation
-        cv = np.std(pw_dist, axis=0)/np.mean(pw_dist, axis=0)
+        cv = np.std(pw_dist, axis=0) / np.mean(pw_dist, axis=0)
         rank = np.argsort(cv)[::-1]
         self.names = [self.names[i] for i in rank]
 
@@ -140,14 +141,14 @@ class FeatureSelection(object):
     # ===== AMINO interface =====
 
     def amino(self,
-            feature_name: list[str],
-            max_outputs: int = 20,
-            bins: int = 50,
-            kde_bandwidth: float = 0.02,
-            **kwargs: dict
-        ) -> list[str]:
+              feature_name: list[str],
+              max_outputs: int = 20,
+              bins: int = 50,
+              kde_bandwidth: float = 0.02,
+              **kwargs: dict
+              ) -> list[str]:
         '''
-        Reduce the number of features using AMINO. 
+        Reduce the number of features using AMINO.
         
         Please see and cite https://doi.org/10.1039/C9ME00115H for a description of the method.
 
@@ -176,8 +177,8 @@ class FeatureSelection(object):
 
     # ===== Format conversion =====
 
-    def get_chimera_plotscript(self, 
-                               feature_name: list[str] = None, 
+    def get_chimera_plotscript(self,
+                               feature_name: list[str] = None,
                                add_header: bool = True
                                ) -> str:
         '''
@@ -201,7 +202,7 @@ class FeatureSelection(object):
             plotscript = f"open {self.ref_pdb}\n" + plotscript
 
         return plotscript
-    
+
     def get_index(self, feature_name: list[str]) -> list[set[int]]:
         '''
         Get the atom indices of features by their names.
@@ -213,7 +214,7 @@ class FeatureSelection(object):
             raise ValueError(f"Feature {e} does not exist.") from e
 
         return index
-    
+
     # ===== Clustering =====
 
     def regular_space_clustering(self,
@@ -249,7 +250,7 @@ class FeatureSelection(object):
         ncenter = 1
         while i < npoints:
 
-            x_active = data[i:i+batch_size]
+            x_active = data[i:i + batch_size]
 
             # All indices of points that are at least min_dist away from all cluster centers
             center_list = data[center_id[center_id != -1]]
@@ -289,7 +290,7 @@ class FeatureSelection(object):
         pca = PCA(n_components=n_components, **kwargs)
         pca.fit(z)
         return pca, pca.transform(z)
-    
+
     @staticmethod
     @njit(parallel=True)
     def _get_distance_to_center(center, coord):
@@ -306,6 +307,6 @@ class FeatureSelection(object):
 
         for i in np.arange(ncenters):
             for j in np.arange(npoints):
-                distance_mat[i, j] = np.linalg.norm(coord[j] - center[i])/np.sqrt(ndims)
+                distance_mat[i, j] = np.linalg.norm(coord[j] - center[i]) / np.sqrt(ndims)
 
         return distance_mat

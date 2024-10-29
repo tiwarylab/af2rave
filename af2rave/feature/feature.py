@@ -2,7 +2,6 @@ import numpy as np
 import mdtraj as md
 from functools import cached_property
 
-from numba import njit
 from numpy.typing import ArrayLike
 
 
@@ -35,7 +34,7 @@ class Feature(object):
         atom_name_j = self._atom_j.name
 
         return f"{resname_i}{resid_i}{chain_i}-{atom_name_i}_{resname_j}{resid_j}{chain_j}-{atom_name_j}"
-    
+
     @property
     def ap(self):
         return self._ap
@@ -54,7 +53,7 @@ class Feature(object):
 
     @cached_property
     def cv(self):
-        return self.std/self.mean
+        return self.std / self.mean
 
     def __len__(self):
         return self._ts.size
@@ -83,5 +82,3 @@ class Feature(object):
             script += f"show /{chain_j}:{resid_j} a\n"
 
         return script
-
-

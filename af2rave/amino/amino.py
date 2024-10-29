@@ -49,7 +49,7 @@ class OrderParameter:
     # name should be unique to the Order Parameter being defined
     def __init__(self, name: str, traj: ArrayLike):
         self.name = name
-        self.traj = np.array(traj).reshape([-1, 1])/np.std(traj)
+        self.traj = np.array(traj).reshape([-1, 1]) / np.std(traj)
 
     def __eq__(self, other):
         return self.name == other.name
@@ -128,7 +128,7 @@ class DistanceMatrix:
         data = np.column_stack((mesh[0].reshape(-1, 1), mesh[1].reshape(-1, 1)))
         samp = KD.score_samples(data)
         samp = samp.reshape(self.bins, self.bins)
-        p = np.exp(samp)/np.sum(np.exp(samp))
+        p = np.exp(samp) / np.sum(np.exp(samp))
 
         return p
 
@@ -408,7 +408,7 @@ def find_ops(all_ops: list[OrderParameter],
     start = timer()
     mut = DistanceMatrix(bins, bandwidth, kernel, weights)
     mut.initialize_distances(all_ops)
-    print(f"DM construction time: {timer()-start:.2f} s")
+    print(f"DM construction time: {timer() - start:.2f} s")
 
     num_array = np.arange(1, max_outputs + 1)[::-1]
     distortion_array = np.zeros_like(num_array)
