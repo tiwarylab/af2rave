@@ -80,8 +80,8 @@ class SPIBResult():
     def project(self, X):
 
         # shape of X: n_input_dims x n_frames
-        # shape of weight: RC_dim x n_input_dims
-        # shape of bias: RC_dim
+        # shape of weight: 2 x n_input_dims
+        # shape of bias: 2
         
         min_max_scaling = (self._min is not None) and (self._max is not None)
         if min_max_scaling:

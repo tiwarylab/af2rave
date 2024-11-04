@@ -146,6 +146,10 @@ class Colvar(object):
     @property
     def shape(self):
         return self._data.shape
+    
+    @property
+    def data(self):
+        return self._data
 
     # python magic functions
     # --------------------------------
