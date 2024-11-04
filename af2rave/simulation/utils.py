@@ -8,8 +8,10 @@ import pdbfixer
 
 from . import Charmm36mFF
 
-type AtomIndexLike = int | set[int] | list[int] | list[set[int]]
-type TopologyLike = app.Topology | md.Topology | str
+# python < 3.12 backward compatibility
+from typing import Union
+AtomIndexLike = Union[int, set[int], list[int], list[set[int]]]
+TopologyLike = Union[app.Topology, md.Topology, str]
 
 class TopologyMap:
 

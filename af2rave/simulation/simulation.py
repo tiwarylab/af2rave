@@ -113,10 +113,13 @@ class UnbiasedSimulation():
         self._add_reporter(self._get_thermo_reporter(steps))
         self.simulation.context.setPositions(self._pos)
 
-        from .reporter import MinimizationReporter
-        self.simulation.minimizeEnergy(
-            maxIterations=500, reporter=MinimizationReporter(500)
-        )
+        if openmm.version.short_version >= "8.1.0":
+            from .reporter import MinimizationReporter
+            self.simulation.minimizeEnergy(
+                maxIterations=500, reporter=MinimizationReporter(500)
+            )
+        else:
+            self.simulation.minimizeEnergy(maxIterations=500)
         self.save_pdb(self._prefix + "_minimized.pdb")
         self.simulation.step(steps)
 
