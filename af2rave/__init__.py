@@ -8,3 +8,4 @@ from . import feature
 from . import simulation
 from . import spib
 from . import amino
+from .colvar import Colvar

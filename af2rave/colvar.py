@@ -7,14 +7,16 @@ import numpy as np
 
 class Colvar(object):
 
-    def __init__(self, filename: str = None):
-        self._filename = None
-        self._header = []
-        self._time = None
-        self._data = np.array([])
-
-        if filename is not None:
-            self.read(filename)
+    def __init__(self, header = [], time = np.array([]), data = np.array([])):
+        self._header = header
+        self._time = time
+        self._data = data
+    
+    @classmethod
+    def from_file(cls, filename: str):
+        colvar = cls()
+        colvar.read(filename)
+        return colvar
 
     def _get_header_from_file(self):
 
@@ -128,11 +130,14 @@ class Colvar(object):
 
         return new_colvar
     
-    def map(self, func: callable) -> None:
+    def map(self, func: callable, insitu=True):
         '''
         Apply a function to the data. The function should take in a numpy array and return a numpy array.
         '''
-        self._data = func(self._data)
+        if insitu:
+            self._data = func(self._data)
+        else:
+            return Colvar(self._header, self._time, func(self._data))
 
     @property
     def header(self):
