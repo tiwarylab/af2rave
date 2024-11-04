@@ -3,35 +3,33 @@ import torch
 import os
 import random
 
-from . import SPIB
-from . import SPIB_training
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-default_device = torch.device("cpu")
+from .modules import SPIB
+from .modules import SPIB_training
 
 
-def spib(traj_data_list: list[torch.Tensor],
-         traj_labels_list: list[torch.Tensor],
-         dt_list: list[int],
-         batch_size: int = 512,
-         traj_weights_list: list[torch.Tensor] = None,
-         base_path: str = "SPIB",
-         t0: int = 0,
-         RC_dim: int = 2,
-         encoder_type: str = "Linear",
-         neuron_num1: int = 32,
-         neuron_num2: int = 128,
-         threshold: float = 0.01,
-         patience: int = 2,
-         refinements: int = 8,
-         log_interval: int = 10000,
-         lr_scheduler_step_size: int = 5,
-         lr_scheduler_gamma: float = 0.8,
-         learning_rate: float = 1e-4,
-         beta: float = 0.05,
-         seed: int = 42,
-         UpdateLabel: bool = True,
-         SaveTrajResults: bool = True):
+def spib_kernel(traj_data_list: list[torch.Tensor],
+                traj_labels_list: list[torch.Tensor],
+                dt_list: list[int],
+                device: torch.device,
+                batch_size: int = 512,
+                traj_weights_list: list[torch.Tensor] = None,
+                base_path: str = "SPIB",
+                t0: int = 0,
+                RC_dim: int = 2,
+                encoder_type: str = "Linear",
+                neuron_num1: int = 32,
+                neuron_num2: int = 128,
+                threshold: float = 0.01,
+                patience: int = 2,
+                refinements: int = 8,
+                log_interval: int = 10000,
+                lr_scheduler_step_size: int = 5,
+                lr_scheduler_gamma: float = 0.8,
+                learning_rate: float = 1e-4,
+                beta: float = 0.05,
+                seed: int = 42,
+                UpdateLabel: bool = True,
+                SaveTrajResults: bool = True):
 
     '''
     Python interface for the SPIB model.
@@ -44,11 +42,8 @@ def spib(traj_data_list: list[torch.Tensor],
 
     output_dim = traj_labels_list[0].shape[1]
 
-    os.makedirs(os.path.dirname(base_path), exist_ok=True)
-    if traj_weights_list is None:
-        base_path = os.path.join(base_path, "Unweighted")
-    else:
-        base_path = os.path.join(base_path, "Weighted")
+    os.makedirs(base_path, exist_ok=True)
+    base_path = os.path.join(base_path, "model")
 
     final_result_path = base_path + '_result.dat'
     with open(final_result_path, 'w') as f:
@@ -57,9 +52,6 @@ def spib(traj_data_list: list[torch.Tensor],
     np.random.seed(seed)
     torch.manual_seed(seed)
     random.seed(seed)
-
-    if isinstance(dt_list, (float, int)):
-        dt_list = [dt_list]
 
     for dt in dt_list:
         data_init_list = []
@@ -112,40 +104,3 @@ def spib(traj_data_list: list[torch.Tensor],
             IB.save_traj_results(traj_data_list[i], batch_size, output_path, SaveTrajResults, i, seed)
 
         IB.save_representative_parameters(output_path, seed)
-
-
-def create_input_from_colvar(filename: list[str] | str,
-                             stride: int = 1) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
-    '''
-    Create input data from one or a list of PLUMED-style COLVAR file.
-
-    :param filename: The name of the file to read the CVs from.
-    :type filename: list[str] | str
-    :param stride: The interval at which to read the CVs. Default: 1
-    :type stride: int
-    :return: A tuple of two lists of torch.Tensor, the first list contains the CVs and the second list contains the labels.
-    '''
-
-    if isinstance(filename, str):
-        filename = [filename]
-
-    traj_data_list = []
-    traj_labels_list = []
-
-    n_states = len(filename) * 2
-
-    for i, f in enumerate(filename):
-
-        data = np.loadtxt(f)[::stride]
-
-        n_data = data.shape[0]
-        scalar_label = np.rint(np.linspace(0, 1, n_data)) + i * 2
-        onehot_label = np.eye(n_states)[scalar_label.astype(int)]
-
-        data = torch.tensor(data, dtype=torch.float32).to(device)
-        label = torch.tensor(onehot_label, dtype=torch.float32).to(device)
-
-        traj_data_list.append(data)
-        traj_labels_list.append(label)
-
-    return traj_data_list, traj_labels_list
