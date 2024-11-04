@@ -1,4 +1,4 @@
-from af2rave.feature.colvar import Colvar
+from af2rave import Colvar
 import pytest
 import numpy as np
 import os
@@ -50,11 +50,23 @@ def test_choose():
     assert colvar2.shape == (3, DAT_LENGTH)
     check_reproduce(colvar2)
 
+def test_choose_invariance():
+    colvar = Colvar("./tests/test_colvars/base.dat")
+    colvar2 = colvar.choose(["d5_1664", "d5_1665", "d5_1666"])
+    del colvar["d5_1664"]
+    assert colvar2["d5_1664"] is not None
+
+def test_choose_invariance2():
+    colvar = Colvar("./tests/test_colvars/base.dat")
+    colvar2 = colvar.choose(["d5_1664", "d5_1665", "d5_1666"])
+    colvar["d5_1664"] = np.ones(DAT_LENGTH)
+    assert not np.allclose(colvar2["d5_1664"], np.ones(DAT_LENGTH))
+
 def test_tappend():
     colvar = Colvar("./tests/test_colvars/base.dat")
-    colvar2 = colvar.tappend(colvar)
-    assert colvar2.shape == (DAT_COL, 2 * DAT_LENGTH)
-    check_reproduce(colvar2)
+    colvar.tappend(colvar)
+    assert colvar.shape == (DAT_COL, 2 * DAT_LENGTH)
+    check_reproduce(colvar)
 
 def test_tappend_with_shorter():
     colvar = Colvar("./tests/test_colvars/base.dat")
@@ -68,6 +80,9 @@ def test_tappend_with_longer():
     colvar2.tappend(colvar)
     assert colvar2.shape == (3, 2 * DAT_LENGTH)
     check_reproduce(colvar2)
+
+def test_kappend():
+    pass
 
 def test_magic_contains():
     colvar = Colvar("./tests/test_colvars/base.dat")

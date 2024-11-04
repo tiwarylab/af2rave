@@ -7,7 +7,7 @@ universially applicable. For more general use, please use the cli module
 by calling `python -m af2rave.amino`
 '''
 
-from ..feature.colvar import Colvar
+from ..colvar import Colvar
 try:
     import amino
 except ImportError:
@@ -27,12 +27,12 @@ class AMINO(object):
         self._result = None
 
     @property
-    def result(self):
+    def result(self) -> list[str]:
         if self._result is None:
             raise ValueError("Please run AMINO first.")
         return self._result
 
-    def _run_from_self(self):
+    def _run_from_self(self) -> None:
         ops = [amino.OrderParameter(ll, dd) for ll, dd in zip(self._label, self._data)]
         result = amino.find_ops(
             ops, self._n, self._bins,
@@ -40,7 +40,7 @@ class AMINO(object):
         )
         self._result = [i.name for i in result]
 
-    def from_timeseries(self, label, data):
+    def from_timeseries(self, label, data) -> list[str]:
 
         if len(label) != len(data):
             raise ValueError("The length of label and data do not match.")
@@ -72,8 +72,8 @@ class AMINO(object):
 
         return self.result
 
-    def get_colvar(self):
+    def get_colvar(self) -> Colvar:
         return self._colvar.choose(self.result)
 
-    def write_colvar(self, filename):
+    def write_colvar(self, filename: str) -> None:
         self.get_colvar().write(filename)

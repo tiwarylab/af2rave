@@ -3,7 +3,7 @@ from typing import Annotated
 from rich import print as rprint
 
 from .wrapper import AMINO
-from ..feature.colvar import Colvar
+from ..colvar import Colvar
 
 
 def main(filename: Annotated[str,

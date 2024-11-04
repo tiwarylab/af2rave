@@ -5,7 +5,7 @@ This class handles a PLUMED style COLVAR file.
 import numpy as np
 
 
-class Colvar():
+class Colvar(object):
 
     def __init__(self, filename: str = None):
         self._filename = None
@@ -88,7 +88,16 @@ class Colvar():
                 return None
         return arg_arr
 
-    def tappend(self, data: 'Colvar'):
+    def tappend(self, data: "Colvar") -> None:
+        '''
+        Append the data along the time axis in place. 
+        The incoming data should contain all columns in the base data.
+
+        :param data: The incoming data.
+        :type data: Colvar
+        :return: None
+        :raises ValueError: If the incoming data does not have all columns in the base data.
+        '''
 
         index = self._match_header(self._header, data.header)
         if index is None:
@@ -96,9 +105,8 @@ class Colvar():
 
         self._data = np.append(self._data, data._data[index], axis=1)
         self._time = np.append(self._time, data._time)
-        return self
 
-    def kappend(self, data: 'Colvar'):
+    def kappend(self, data: 'Colvar') -> None:
 
         if self.shape[1] != data.shape[1]:
             raise ValueError("The incoming date does not have the same number of entries as the base data.")
@@ -106,7 +114,7 @@ class Colvar():
         self._header += data.header
         self._data = np.append(self._data, data._data, axis=0)
 
-    def choose(self, columns: list):
+    def choose(self, columns: list) -> "Colvar":
         '''
         Choose the columns from the data. Returns a copy including the time.
         '''
@@ -119,6 +127,12 @@ class Colvar():
         new_colvar._data = self._data[index]
 
         return new_colvar
+    
+    def map(self, func: callable) -> None:
+        '''
+        Apply a function to the data. The function should take in a numpy array and return a numpy array.
+        '''
+        self._data = func(self._data)
 
     @property
     def header(self):
