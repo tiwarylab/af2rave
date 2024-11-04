@@ -21,16 +21,6 @@ classifiers = [
 ]
 license = {text = "MIT license"}
 requires-python = ">= 3.10"
-dependencies = [
-  "typer",
-  "numpy",
-  "openmm>=8.1.1",
-  "mdtraj>=1.10.0",
-  "scikit-learn",
-  "numba",
-  "torch",
-  "pdbfixer @ git+https://github.com/openmm/pdbfixer.git"
-]
 
 [project.optional-dependencies]
 dev = [
