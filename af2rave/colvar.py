@@ -7,11 +7,11 @@ import numpy as np
 
 class Colvar(object):
 
-    def __init__(self, header = [], time = np.array([]), data = np.array([])):
+    def __init__(self, header=[], time=np.array([]), data=np.array([])):
         self._header = header
         self._time = time
         self._data = data
-    
+
     @classmethod
     def from_file(cls, filename: str):
         colvar = cls()
@@ -92,7 +92,7 @@ class Colvar(object):
 
     def tappend(self, data: "Colvar") -> None:
         '''
-        Append the data along the time axis in place. 
+        Append the data along the time axis in place.
         The incoming data should contain all columns in the base data.
 
         :param data: The incoming data.
@@ -129,7 +129,7 @@ class Colvar(object):
         new_colvar._data = self._data[index]
 
         return new_colvar
-    
+
     def map(self, func: callable, insitu=True):
         '''
         Apply a function to the data. The function should take in a numpy array and return a numpy array.
@@ -146,6 +146,10 @@ class Colvar(object):
     @property
     def shape(self):
         return self._data.shape
+
+    @property
+    def data(self):
+        return self._data
 
     # python magic functions
     # --------------------------------

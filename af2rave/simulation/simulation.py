@@ -113,10 +113,13 @@ class UnbiasedSimulation():
         self._add_reporter(self._get_thermo_reporter(steps))
         self.simulation.context.setPositions(self._pos)
 
-        from .reporter import MinimizationReporter
-        self.simulation.minimizeEnergy(
-            maxIterations=500, reporter=MinimizationReporter(500)
-        )
+        if openmm.version.short_version >= "8.1.0":
+            from .reporter import MinimizationReporter
+            self.simulation.minimizeEnergy(
+                maxIterations=500, reporter=MinimizationReporter(500)
+            )
+        else:
+            self.simulation.minimizeEnergy(maxIterations=500)
         self.save_pdb(self._prefix + "_minimized.pdb")
         self.simulation.step(steps)
 
@@ -236,7 +239,7 @@ class UnbiasedSimulation():
             if plt in platform_names:
                 print(f"Using {plt} platform.")
                 return platforms[platform_names.index(plt)]
-        
+
         # if the code reaches here something is wrong
         raise RuntimeError("No suitable platform found. Attempted: CUDA, OpenCL, CPU")
 
@@ -248,12 +251,12 @@ class UnbiasedSimulation():
         if self._progress_every is None:
             return None
         rep = app.StateDataReporter(stdout,
-                    self._progress_every, step=True,
-                    potentialEnergy=True, temperature=True, volume=True,
-                    progress=True, remainingTime=True,
-                    totalSteps=steps, elapsedTime=True,
-                    speed=True, separator="\t", append=self._append
-        )
+                                    self._progress_every, step=True,
+                                    potentialEnergy=True, temperature=True, volume=True,
+                                    progress=True, remainingTime=True,
+                                    totalSteps=steps, elapsedTime=True,
+                                    speed=True, separator="\t", append=self._append
+                                    )
         return rep
 
     def _get_cv_reporter(self, **kwargs) -> CVReporter | None:

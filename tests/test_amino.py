@@ -4,9 +4,11 @@ import pytest
 import numpy as np
 import os
 
+
 def test_import():
     assert amino is not None
     assert amino.AMINO is not None
+
 
 def test_from_colvar():
     a = amino.AMINO()
@@ -21,6 +23,7 @@ def test_from_colvar():
     assert new_colvar.shape == a.get_colvar().shape
     assert np.allclose(new_colvar._data, a.get_colvar()._data)
     os.remove("./tests/test_colvars/test.dat")
+
 
 def test_no_run_get_colvar():
     a = amino.AMINO()
