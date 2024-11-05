@@ -76,8 +76,8 @@ class SPIBProcess(object):
         self._min, self._max = np.inf, -np.inf
 
         for i, t in enumerate(self._traj_data_list):
-            self._min = np.minimum(self._min, torch.min(t, axis=0), dtype=np.float32)
-            self._max = np.maximum(self._max, torch.max(t, axis=0), dtype=np.float32)
+            self._min = np.minimum(self._min, torch.min(t, 0).values.numpy(), dtype=np.float32)
+            self._max = np.maximum(self._max, torch.max(t, 0).values.numpy(), dtype=np.float32)
 
         self._b = self._min
         self._k = self._max - self._min

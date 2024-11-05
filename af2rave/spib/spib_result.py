@@ -108,14 +108,14 @@ class SPIBResult():
         # shape of bias: 2
 
         p = (X - self._b) / self._k
-        p = np.dot(self._z_mean_encoder["weight"], p) + self._z_mean_encoder["bias"]
+        p = np.dot(self._z_mean_encoder["weight"], p) + self._z_mean_encoder["bias"].reshape(-1, 1)
         return p
 
     def project_colvar(self, X: Colvar):
 
         scaling = lambda x: (x - self._b) / self._k
         Z = X.map(scaling, insitu=False)
-        projection = lambda x: np.dot(self._z_mean_encoder["weight"], x) + self._z_mean_encoder["bias"]
+        projection = lambda x: np.dot(self._z_mean_encoder["weight"], x) + self._z_mean_encoder["bias"].reshape(-1, 1)
         Z.map(projection)
 
         return Z
@@ -128,9 +128,9 @@ class SPIBResult():
 
         if traj_idx is not None:
             idx = np.atleast_1d(traj_idx)
-            rep = np.vstack([self._traj[i]["representation"] for i in idx])
+            rep = np.vstack([self._traj[i]["mean_representation"] for i in idx])
         else:
-            rep = np.vstack([traj["representation"] for traj in self._traj])
+            rep = np.vstack([traj["mean_representation"] for traj in self._traj])
         return rep.T
 
     def get_state_label(self, traj_idx: int = None):
@@ -162,7 +162,7 @@ class SPIBResult():
     def get_probability_distribution(self, nbins=200):
 
         h, x, y = np.histogram2d(*self.get_latent_representation(), bins=nbins, density=True)
-        return x, y, h
+        return x, y, h.T    # what the hell is this transpose?
 
     def get_free_energy(self, nbins=200):
         '''
@@ -182,5 +182,5 @@ class SPIBResult():
 
         x, y, h = self.get_probability_distribution(nbins)
         f = -np.log(h)
-        f -= np.min(f)
+#        f -= np.min(f)
         return x, y, f
