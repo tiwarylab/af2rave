@@ -20,28 +20,56 @@ class SPIBProcess(object):
         self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         if isinstance(traj, str):
-            traj = [traj]
+            self._traj = [traj]
+        else:
+            self._traj = traj
         self._n_traj = len(traj)
         self._kwargs = kwargs
 
-        self._traj_data_list: list[torch.Tensor] = []
-        self._traj_labels_list: list[torch.Tensor] = []
+        self._traj_data_list = self._load_data()
+        self._traj_labels_list = self._init_default_label()
+        self._min_max_scaling()
 
-        for i, f in enumerate(traj):
+    def _load_data(self) -> list[torch.Tensor]:
+        '''
+        Load the colvar data from the trajectory files.
 
+        :return traj_data_list: list of torch.Tensor in designated device
+        :rtype: list[torch.Tensor]
+        '''
+
+        traj_data_list = []
+
+        for f in self._traj:
             data = Colvar.from_file(f).data.T
-            n_data = data.shape[0]
+            data = torch.tensor(data, dtype=torch.float32).to(self._device)
+            self._traj_data_list.append(data)
+        
+        return traj_data_list
+
+    def _init_default_label(self):
+        '''
+        Initialize the default labels for the trajectories.
+        
+        The default labels are one-hot encoded, with the first half of the trajectory
+        labeled as 0 and the second half labeled as 1.
+
+        :return traj_labels_list: list of torch.Tensor in designated device
+        :rtype: list[torch.Tensor]
+        '''
+
+        traj_labels_list = []
+
+        for i, f in enumerate(self._traj_data_list):
+            n_data = f.shape[0]
 
             scalar_label = np.rint(np.arange(n_data) >= n_data / 2).astype(int) + i * 2
             onehot_label = np.eye(self._n_traj * 2)[scalar_label]
-
-            data = torch.tensor(data, dtype=torch.float32).to(self._device)
             label = torch.tensor(onehot_label, dtype=torch.float32).to(self._device)
 
-            self._traj_data_list.append(data)
-            self._traj_labels_list.append(label)
-
-        self._min_max_scaling()
+            traj_labels_list.append(label)
+        
+        return traj_labels_list
 
     def _min_max_scaling(self):
 
