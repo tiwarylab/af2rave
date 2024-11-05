@@ -107,7 +107,7 @@ class SPIBResult():
         # shape of weight: 2 x n_input_dims
         # shape of bias: 2
 
-        p = (X - self._b) / self._k
+        p = (X - self._b.reshape(-1, 1)) / self._k.reshape(-1, 1)
         p = np.dot(self._z_mean_encoder["weight"], p) + self._z_mean_encoder["bias"].reshape(-1, 1)
         return p
 
@@ -179,5 +179,5 @@ class SPIBResult():
 
         x, y, h = self.get_probability_distribution(nbins)
         f = -np.log(h)
-#        f -= np.min(f)
+        f -= np.min(f)
         return x, y, f

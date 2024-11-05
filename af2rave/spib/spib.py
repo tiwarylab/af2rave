@@ -43,7 +43,7 @@ class SPIBProcess(object):
         for f in self._traj:
             data = Colvar.from_file(f).data.T
             data = torch.tensor(data, dtype=torch.float32).to(self._device)
-            self._traj_data_list.append(data)
+            traj_data_list.append(data)
         
         return traj_data_list
 
@@ -90,7 +90,7 @@ class SPIBProcess(object):
         basename = "tmp_" + hashlib.md5(str(time.time()).encode()).hexdigest()
         seed = self._kwargs.get('seed', 42)
 
-        spib_kernel(self._traj_data_list, self._traj_labels_list, [time_lag],
+        spib_kernel(self._traj_data_list, self._traj_labels_list, time_lag,
                     base_path=basename, device=self._device,
                     **kwargs)
 

@@ -1,3 +1,7 @@
+'''
+TODO: reorganize this function and `SPIBProcess` to allow more fluent UI.
+'''
+
 import numpy as np
 import torch
 import os
