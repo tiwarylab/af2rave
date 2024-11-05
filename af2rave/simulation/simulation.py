@@ -239,7 +239,7 @@ class UnbiasedSimulation():
             if plt in platform_names:
                 print(f"Using {plt} platform.")
                 return platforms[platform_names.index(plt)]
-        
+
         # if the code reaches here something is wrong
         raise RuntimeError("No suitable platform found. Attempted: CUDA, OpenCL, CPU")
 
@@ -251,12 +251,12 @@ class UnbiasedSimulation():
         if self._progress_every is None:
             return None
         rep = app.StateDataReporter(stdout,
-                    self._progress_every, step=True,
-                    potentialEnergy=True, temperature=True, volume=True,
-                    progress=True, remainingTime=True,
-                    totalSteps=steps, elapsedTime=True,
-                    speed=True, separator="\t", append=self._append
-        )
+                                    self._progress_every, step=True,
+                                    potentialEnergy=True, temperature=True, volume=True,
+                                    progress=True, remainingTime=True,
+                                    totalSteps=steps, elapsedTime=True,
+                                    speed=True, separator="\t", append=self._append
+                                    )
         return rep
 
     def _get_cv_reporter(self, **kwargs) -> CVReporter | None:

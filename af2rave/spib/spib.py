@@ -11,9 +11,10 @@ from .spib_result import SPIBResult
 from .wrapper import spib as spib_kernel
 from ..colvar import Colvar
 
+
 class SPIBProcess(object):
 
-    def __init__(self, 
+    def __init__(self,
                  traj: str | list[str], **kwargs):
 
         self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -39,7 +40,7 @@ class SPIBProcess(object):
             self._min = np.minimum(self._min, np.min(data, axis=0), dtype=np.float32)
             self._max = np.maximum(self._max, np.max(data, axis=0), dtype=np.float32)
 
-            scalar_label = np.rint(np.arange(n_data) >= n_data/2).astype(int) + i * 2
+            scalar_label = np.rint(np.arange(n_data) >= n_data / 2).astype(int) + i * 2
             onehot_label = np.eye(n_states)[scalar_label]
 
             data = torch.tensor(data, dtype=torch.float32).to(self._device)
@@ -57,15 +58,13 @@ class SPIBProcess(object):
 
         basename = "tmp_" + hashlib.md5(str(time.time()).encode()).hexdigest()
         seed = self._kwargs.get('seed', 42)
-        
-        spib_kernel(self._traj_data_list, self._traj_labels_list, [time_lag], 
+
+        spib_kernel(self._traj_data_list, self._traj_labels_list, [time_lag],
                     base_path=basename, device=self._device,
                     **kwargs)
-        
+
         prefix = f"{basename}/model_dt_{time_lag}"
         postfix = f"{seed}.npy"
 
-        return SPIBResult(prefix, postfix, self._n_traj, 
+        return SPIBResult(prefix, postfix, self._n_traj,
                           dt=time_lag, min=self._min, max=self._max)
-    
-    

@@ -11,6 +11,7 @@ from .wrapper import spib
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 default_device = torch.device("cpu")
 
+
 def main(traj: Annotated[str, Argument(help="Path to the trajectory data. Can be a list of paths like traj1.dat,traj2.dat")],
          dt_list: Annotated[str, Argument(help="Time delay in terms of frames in the trajectory. Can be a list like 10,20,30")],
          label: Annotated[str, Option(help="Path to the initial state labels. Can be a list.")],
@@ -58,6 +59,7 @@ def main(traj: Annotated[str, Argument(help="Path to the trajectory data. Can be
          threshold, patience, refinements, log_interval,
          lr_scheduler_step_size, lr_scheduler_gamma, learning_rate,
          beta, seed, UpdateLabel, SaveTrajResults)
+
 
 if __name__ == '__main__':
     typer.run(main)

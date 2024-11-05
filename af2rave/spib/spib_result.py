@@ -26,8 +26,8 @@ class SPIBResult():
             self._traj[i]["labels"] = self._np_load("labels", i)
 
             # 1 x n_input_labels
-            self._traj[i]["state_population"] = self._np_load("state_population", i)      
-            
+            self._traj[i]["state_population"] = self._np_load("state_population", i)
+
             # n_frames x RC_dim
             self._traj[i]["mean_representation"] = self._np_load("mean_representation", i)
             self._traj[i]["representation"] = self._np_load("representation", i)
@@ -62,22 +62,22 @@ class SPIBResult():
     @property
     def dt(self):
         return self._dt
-    
+
     @property
     def n_traj(self):
         return self._n_traj
-    
+
     @property
     def n_input_labels(self):
         return self._traj[0]["labels"].shape[1]
-    
+
     @property
     def n_converged_states(self) -> int:
         '''
         The number of remaining converged states.
         '''
         return np.sum(self._converged_states)
-    
+
     def _get_converged_states(self) -> np.ndarray:
         '''
         Return a one-hot encoding of all remaining states.
@@ -90,7 +90,7 @@ class SPIBResult():
         for i in np.arange(self._n_traj):
             labels |= np.any(self._traj[i]["labels"], axis=0)
         return labels
-    
+
     def project(self, X):
         '''
         Project the input data to the latent space.
@@ -102,7 +102,7 @@ class SPIBResult():
         # shape of X: n_input_dims x n_frames
         # shape of weight: 2 x n_input_dims
         # shape of bias: 2
-        
+
         min_max_scaling = (self._min is not None) and (self._max is not None)
         if min_max_scaling:
             b, k = self._min, self._max - self._min
@@ -113,7 +113,7 @@ class SPIBResult():
         p = (X - b) / k
         p = np.dot(self._z_mean_encoder["weight"], p) + self._z_mean_encoder["bias"]
         return p
-        
+
     def project_colvar(self, X: Colvar):
 
         min_max_scaling = (self._min is not None) and (self._max is not None)
@@ -129,10 +129,10 @@ class SPIBResult():
         Z.map(projection)
 
         return Z
-    
+
     def get_latent_representation(self, traj_idx: int = None):
         '''
-        Return the latent representation of the trajectory. 
+        Return the latent representation of the trajectory.
         If no index is provides, return all trajectories.
         '''
 
@@ -144,7 +144,7 @@ class SPIBResult():
 
     def get_state_label(self, traj_idx: int = None):
         '''
-        Return the state label of the trajectory. 
+        Return the state label of the trajectory.
         If no index is provides, return all trajectories.
         '''
 
@@ -153,10 +153,10 @@ class SPIBResult():
         else:
             state = np.hstack([traj["labels"].nonzero()[1] for traj in self._traj])
         return state
-    
+
     def get_traj_label(self, traj_idx: int = None):
         '''
-        Return the trajectory label of the trajectory. 
+        Return the trajectory label of the trajectory.
         If no index is provides, return all trajectories.
         '''
 
@@ -165,13 +165,13 @@ class SPIBResult():
         else:
             traj = np.hstack([np.full(traj["labels"].shape[0], i) for i, traj in enumerate(self._traj)])
         return traj
-    
-    def get_probability_distribution(self, nbins = 200):
+
+    def get_probability_distribution(self, nbins=200):
 
         h, x, y = np.histogram2d(*self.get_latent_representation(), bins=nbins, density=True)
         return x, y, h
-    
-    def get_free_energy(self, nbins = 200):
+
+    def get_free_energy(self, nbins=200):
         '''
         Get the free energy as the negative logarithm of the probability distribution. Unit: kT
 

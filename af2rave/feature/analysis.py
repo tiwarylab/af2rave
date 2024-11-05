@@ -149,7 +149,7 @@ class FeatureSelection(object):
               ) -> list[str]:
         '''
         Reduce the number of features using AMINO.
-        
+
         Please see and cite https://doi.org/10.1039/C9ME00115H for a description of the method.
 
         :param n_features: int: The number features to work with. Picked using the highest coefficient of variation.

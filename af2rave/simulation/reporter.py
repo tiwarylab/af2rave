@@ -41,9 +41,9 @@ class CVReporter(object):
         self.buffer = np.zeros(self.n_cv)
         self.format = "{} " + "{:.4f} " * self.n_cv + "\n"
         if not append:
-            self._out.write("#! FIELD time "
-                            + " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv])
-                            + "\n")
+            self._out.write("#! FIELD time ",
+                            " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv]),
+                            "\n")
 
     def __del__(self):
         self._out.flush()
@@ -60,6 +60,7 @@ class CVReporter(object):
             self.buffer[i] = np.linalg.norm((coord[a] - coord[b]).value_in_unit(angstroms))
         self._out.write(self.format.format(step, *self.buffer))
 
+
 if openmm.version.short_version >= '8.1.0':
     # The class can have any name but it must subclass MinimizationReporter.
     class MinimizationReporter(openmm.MinimizationReporter):
@@ -74,22 +75,22 @@ if openmm.version.short_version >= '8.1.0':
         def report(self, iteration, x, grad, args):
             '''
             the report method is called every iteration of the minimization.
-            
+
             Args:
-                iteration (int): The index of the current iteration. This refers 
+                iteration (int): The index of the current iteration. This refers
                                 to the current call to the L-BFGS optimizer.
-                                Each time the minimizer increases the restraint strength, 
+                                Each time the minimizer increases the restraint strength,
                                 the iteration index is reset to 0.
 
-                x (array-like): The current particle positions in flattened order: 
-                                the three coordinates of the first particle, 
+                x (array-like): The current particle positions in flattened order:
+                                the three coordinates of the first particle,
                                 then the three coordinates of the second particle, etc.
 
-                grad (array-like): The current gradient of the objective function 
-                                (potential energy plus restraint energy) with 
+                grad (array-like): The current gradient of the objective function
+                                (potential energy plus restraint energy) with
                                 respect to the particle coordinates, in flattened order.
 
-                args (dict): Additional statistics  about the current state of minimization. 
+                args (dict): Additional statistics  about the current state of minimization.
                     In particular:
                     "system energy": the current potential energy of the system
                     "restraint energy": the energy of the harmonic restraints
@@ -102,8 +103,9 @@ if openmm.version.short_version >= '8.1.0':
 
             if iteration == self._maxIter - 1:
                 print(f"Minimization epoch {self._round}, "
-                    f"constraint k = {args['restraint strength']:.2e}. "
-                    f"Max constraint error: {args['max constraint error']:.5e}")
+                     f"constraint k = {args['restraint strength']:.2e}. "
+                     f"Max constraint error: {args['max constraint error']:.5e}"
+                )
                 self._round += 1
 
             return False
