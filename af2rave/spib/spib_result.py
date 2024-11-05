@@ -113,10 +113,7 @@ class SPIBResult():
 
     def project_colvar(self, X: Colvar):
 
-        scaling = lambda x: (x - self._b) / self._k
-        Z = X.map(scaling, insitu=False)
-        projection = lambda x: np.dot(self._z_mean_encoder["weight"], x) + self._z_mean_encoder["bias"].reshape(-1, 1)
-        Z.map(projection)
+        Z = X.map(self.project, insitu=False)
 
         return Z
 
