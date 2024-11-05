@@ -1,3 +1,8 @@
+'''
+The SPIB package wrapper that deals with the low-level details of the SPIB model.
+I/O is not taken care of here, so another application level wrapper is needed.
+'''
+
 import numpy as np
 import torch
 import os

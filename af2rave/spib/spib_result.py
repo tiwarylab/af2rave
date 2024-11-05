@@ -2,6 +2,7 @@
 Container class for SPIB results.
 '''
 
+from typing import Union
 import numpy as np
 import pickle
 from ..colvar import Colvar
@@ -14,8 +15,8 @@ class SPIBResult():
         self._postfix = postfix
         self._n_traj = n_traj
         self._dt = kwargs.get("dt", None)
-        self._min = kwargs.get("min", None)
-        self._max = kwargs.get("max", None)
+        self._b = kwargs.get("b", 0)
+        self._k = kwargs.get("k", 1)
 
         # per trajectory data
         self._traj = [{} for _ in range(self._n_traj)]
@@ -32,7 +33,10 @@ class SPIBResult():
             self._traj[i]["mean_representation"] = self._np_load("mean_representation", i)
             self._traj[i]["representation"] = self._np_load("representation", i)
 
+        # remove stale state labels
         self._converged_states = self._get_converged_states()
+        for i in range(self._n_traj):
+            self._traj[i]["labels"] = self._traj[i]["labels"][:, self._converged_states]
 
         # encoder params
         self._z_mean_encoder = {}
@@ -103,41 +107,28 @@ class SPIBResult():
         # shape of weight: 2 x n_input_dims
         # shape of bias: 2
 
-        min_max_scaling = (self._min is not None) and (self._max is not None)
-        if min_max_scaling:
-            b, k = self._min, self._max - self._min
-        else:
-            b, k = 0, 1
-            print("[SPIBResult.project] Missing min-max scaling information.")
-
-        p = (X - b) / k
+        p = (X - self._b) / self._k
         p = np.dot(self._z_mean_encoder["weight"], p) + self._z_mean_encoder["bias"]
         return p
 
     def project_colvar(self, X: Colvar):
 
-        min_max_scaling = (self._min is not None) and (self._max is not None)
-        if min_max_scaling:
-            b, k = self._min, self._max - self._min
-        else:
-            b, k = 0, 1
-            print("[SPIBResult.project_colvar] Missing min-max scaling information.")
-
-        scaling = lambda x: (x - b) / k
+        scaling = lambda x: (x - self._b) / self._k
         Z = X.map(scaling, insitu=False)
         projection = lambda x: np.dot(self._z_mean_encoder["weight"], x) + self._z_mean_encoder["bias"]
         Z.map(projection)
 
         return Z
 
-    def get_latent_representation(self, traj_idx: int = None):
+    def get_latent_representation(self, traj_idx: Union[list[int], int] = None):
         '''
         Return the latent representation of the trajectory.
         If no index is provides, return all trajectories.
         '''
 
         if traj_idx is not None:
-            rep = self._traj[traj_idx]["representation"]
+            idx = np.atleast_1d(traj_idx)
+            rep = np.vstack([self._traj[i]["representation"] for i in idx])
         else:
             rep = np.vstack([traj["representation"] for traj in self._traj])
         return rep.T
@@ -149,7 +140,8 @@ class SPIBResult():
         '''
 
         if traj_idx is not None:
-            state = self._traj[traj_idx]["labels"].nonzero()[1]
+            idx = np.atleast_1d(traj_idx)
+            state = np.hstack([self._traj[i]["labels"] for i in idx])
         else:
             state = np.hstack([traj["labels"].nonzero()[1] for traj in self._traj])
         return state
@@ -161,7 +153,8 @@ class SPIBResult():
         '''
 
         if traj_idx is not None:
-            traj = np.full(self._traj[traj_idx]["labels"].shape[0], traj_idx)
+            idx = np.atleast_1d(traj_idx)
+            traj = np.hstack([np.full(self._traj[i]["labels"].shape[0], i) for i in idx])
         else:
             traj = np.hstack([np.full(traj["labels"].shape[0], i) for i, traj in enumerate(self._traj)])
         return traj

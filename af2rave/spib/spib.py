@@ -24,24 +24,16 @@ class SPIBProcess(object):
         self._n_traj = len(traj)
         self._kwargs = kwargs
 
-        self._traj_data_list = []
-        self._traj_labels_list = []
-
-        n_states = self._n_traj * 2
-
-        self._min = np.inf
-        self._max = -np.inf
+        self._traj_data_list: list[torch.Tensor] = []
+        self._traj_labels_list: list[torch.Tensor] = []
 
         for i, f in enumerate(traj):
 
             data = Colvar.from_file(f).data.T
             n_data = data.shape[0]
 
-            self._min = np.minimum(self._min, np.min(data, axis=0), dtype=np.float32)
-            self._max = np.maximum(self._max, np.max(data, axis=0), dtype=np.float32)
-
             scalar_label = np.rint(np.arange(n_data) >= n_data / 2).astype(int) + i * 2
-            onehot_label = np.eye(n_states)[scalar_label]
+            onehot_label = np.eye(self._n_traj * 2)[scalar_label]
 
             data = torch.tensor(data, dtype=torch.float32).to(self._device)
             label = torch.tensor(onehot_label, dtype=torch.float32).to(self._device)
@@ -49,10 +41,21 @@ class SPIBProcess(object):
             self._traj_data_list.append(data)
             self._traj_labels_list.append(label)
 
-        for i in range(self._n_traj):
-            self._traj_data_list[i] = (self._traj_data_list[i] - self._min) / (self._max - self._min)
+        self._min_max_scaling()
 
-        print(self._max, self._min.shape)
+    def _min_max_scaling(self):
+
+        self._min, self._max = np.inf, -np.inf
+
+        for i, t in enumerate(self._traj_data_list):
+            self._min = np.minimum(self._min, torch.min(t, axis=0), dtype=np.float32)
+            self._max = np.maximum(self._max, torch.max(t, axis=0), dtype=np.float32)
+
+        self._b = self._min
+        self._k = self._max - self._min
+
+        for i in range(self._n_traj):
+            self._traj_data_list[i] = (self._traj_data_list[i] - self._b) / self._k
 
     def run(self, time_lag: int, **kwargs):
 
@@ -67,4 +70,4 @@ class SPIBProcess(object):
         postfix = f"{seed}.npy"
 
         return SPIBResult(prefix, postfix, self._n_traj,
-                          dt=time_lag, min=self._min, max=self._max)
+                          dt=time_lag, b=self._b, k=self._k)

@@ -13,8 +13,8 @@ default_device = torch.device("cpu")
 
 
 def main(traj: Annotated[str, Argument(help="Path to the trajectory data. Can be a list of paths like traj1.dat,traj2.dat")],
-         dt_list: Annotated[str, Argument(help="Time delay in terms of frames in the trajectory. Can be a list like 10,20,30")],
-         label: Annotated[str, Option(help="Path to the initial state labels. Can be a list.")],
+         dt_list: Annotated[int, Argument(help="Time delay in terms of frames in the trajectory.")],
+         label: Annotated[str, Option(help="Path to the initial state labels. Can be a list.")] = None,
          batch_size: Annotated[int, Option("--bs", help="Training batch size.")] = 512,
          bias: Annotated[str, Option(help="Path to the weights of the samples. Leave blank is simulation is unbiased.")] = None,
          base_path: Annotated[str, Option(help="Path to the output base directory")] = "SPIB",
