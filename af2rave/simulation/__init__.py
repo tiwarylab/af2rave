@@ -8,7 +8,7 @@ import openmm.app as app
 import os
 
 _charmm36FF = f"{__path__[0]}/forcefield/charmm36m_protein.xml"
-if not os.path.exists(_charmm36FF):
+if os.path.exists(_charmm36FF):
     Charmm36mFF = app.ForceField(_charmm36FF, "charmm36/water.xml")
 else:
     Charmm36mFF = None

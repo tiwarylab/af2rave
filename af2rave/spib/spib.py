@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import time
 import hashlib
+import os
 
 from .spib_result import SPIBResult
 from .wrapper import spib as spib_kernel
@@ -18,6 +19,7 @@ class SPIBProcess(object):
                  traj: str | list[str], **kwargs):
 
         self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {self._device}")
 
         if isinstance(traj, str):
             self._traj = [traj]
@@ -73,11 +75,12 @@ class SPIBProcess(object):
 
     def _min_max_scaling(self):
 
-        self._min, self._max = np.inf, -np.inf
+        self._min = torch.tensor(np.inf, dtype=torch.float32).to(self._device)
+        self._max = torch.tensor(-np.inf, dtype=torch.float32).to(self._device)
 
         for i, t in enumerate(self._traj_data_list):
-            self._min = np.minimum(self._min, torch.min(t, 0).values.numpy(), dtype=np.float32)
-            self._max = np.maximum(self._max, torch.max(t, 0).values.numpy(), dtype=np.float32)
+            self._min = torch.minimum(self._min, torch.min(t, 0).values)
+            self._max = torch.maximum(self._max, torch.max(t, 0).values)
 
         self._b = self._min
         self._k = self._max - self._min
@@ -87,15 +90,20 @@ class SPIBProcess(object):
 
     def run(self, time_lag: int, **kwargs):
 
-        basename = "tmp_" + hashlib.md5(str(time.time()).encode()).hexdigest()
-        seed = self._kwargs.get('seed', 42)
+        self._basename = "tmp_" + hashlib.md5(str(time.time()).encode()).hexdigest()
+        seed = kwargs.get('seed', 42)
 
         spib_kernel(self._traj_data_list, self._traj_labels_list, time_lag,
-                    base_path=basename, device=self._device,
+                    base_path=self._basename, device=self._device,
                     **kwargs)
 
-        prefix = f"{basename}/model_dt_{time_lag}"
+        prefix = f"{self._basename}/model_dt_{time_lag}"
         postfix = f"{seed}.npy"
 
-        return SPIBResult(prefix, postfix, self._n_traj,
-                          dt=time_lag, b=self._b, k=self._k)
+        return SPIBResult(prefix, postfix, self._n_traj, dt=time_lag, 
+                          b=self._b.cpu().numpy(), 
+                          k=self._k.cpu().numpy())
+    
+
+    def __del__(self):
+        os.remove(self._basename)
