@@ -58,7 +58,7 @@ class SPIBResult():
 
     @classmethod
     def from_file(cls, filename: str):
-        return pickle.load(open(filename, "rb"))
+        return cls(pickle.load(open(filename, "rb")))
 
     def to_file(self, filename: str):
         pickle.dump(self, open(filename, "wb"))
