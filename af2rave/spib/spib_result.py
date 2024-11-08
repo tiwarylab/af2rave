@@ -35,8 +35,9 @@ class SPIBResult():
 
         # remove stale state labels
         self._converged_states = self._get_converged_states()
+        state_idx = np.where(self._converged_states)[0]
         for i in range(self._n_traj):
-            self._traj[i]["labels"] = self._traj[i]["labels"][:, self._converged_states]
+            self._traj[i]["labels"] = self._traj[i]["labels"][:, state_idx]
 
         # encoder params
         self._z_mean_encoder = {}
@@ -58,7 +59,7 @@ class SPIBResult():
 
     @classmethod
     def from_file(cls, filename: str):
-        return cls(pickle.load(open(filename, "rb")))
+        return pickle.load(open(filename, "rb"))
 
     def to_file(self, filename: str):
         pickle.dump(self, open(filename, "wb"))

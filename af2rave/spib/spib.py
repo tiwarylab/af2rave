@@ -6,7 +6,7 @@ import torch
 import numpy as np
 import time
 import hashlib
-import os
+import shutil
 
 from .spib_result import SPIBResult
 from .wrapper import spib as spib_kernel
@@ -19,7 +19,7 @@ class SPIBProcess(object):
                  traj: str | list[str], **kwargs):
 
         self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        print(f"Using device: {self._device}")
+        print(f"[af2rave.spib] Using device: {self._device}")
 
         if isinstance(traj, str):
             self._traj = [traj]
@@ -104,6 +104,5 @@ class SPIBProcess(object):
                           b=self._b.cpu().numpy(), 
                           k=self._k.cpu().numpy())
     
-
     def __del__(self):
-        os.remove(self._basename)
+        shutil.rmtree(self._basename, ignore_errors=True)
