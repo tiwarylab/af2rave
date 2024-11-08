@@ -22,11 +22,13 @@ class AlphaFoldBase(object):
         self._msa = None
 
     @classmethod
-    def from_sequence(cls, sequence: str, name: str = "prediction", output_dir: str = "output"):
+    def from_sequence(cls, sequence: str, name: str = "prediction", output_dir: str = None):
+        if output_dir is None:
+            output_dir = name
         return cls(sequence=sequence, name=name, output_dir=output_dir)
     
     @classmethod
-    def from_fasta(cls, fasta_string: Union[str, Path], name=None, output_dir: str = "output"):
+    def from_fasta(cls, fasta_string: Union[str, Path], name=None, output_dir: str = None):
 
         # first check if this string is a file
         if os.path.isfile(fasta_string):
@@ -35,15 +37,33 @@ class AlphaFoldBase(object):
         sequences, descriptions = parse_fasta(fasta_string)
         if len(sequences) != 1:
             raise ValueError("Illegal FASTA format or contains more than one sequence.")
+
         if name is None:
             name = descriptions[0]
+        if output_dir is None:
+            output_dir = name
+
         return cls(sequence=sequences[0], name=name, output_dir=output_dir)
     
     @classmethod
-    def from_a3m_msa(cls, a3m_msa: str, name=None, output_dir: str = "output"):
+    def from_a3m_msa(cls, a3m_msa: str, name: str = None, output_dir: str = "output"):
+        '''
+        Creates an AlphaFold object from an A3M MSA string or file.
+
+        :param a3m_msa: A3M MSA string or file.
+            The input can either be a path or the string itself.
+        :type a3m_msa: str
+        :param name: The name of the system
+        :type name: str
+        :param output_dir: Default output directory.
+        :type output_dir: str
+        :return: An AlphaFold object
+        '''
 
         if os.path.isfile(a3m_msa):
             a3m_msa = Path(a3m_msa).read_text()
+            if name is None:
+                name = Path(a3m_msa).stem
         
         sequence, descriptions = parse_fasta(a3m_msa)
         if name is None:

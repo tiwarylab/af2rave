@@ -8,6 +8,7 @@ from functools import cached_property
 
 from .base import AlphaFoldBase
 import colabfold.batch as cf
+cf.logger.setLevel("INFO")
 
 
 class ColabFold(AlphaFoldBase):
@@ -16,12 +17,15 @@ class ColabFold(AlphaFoldBase):
         super().__init__(**kwargs)
         self._queries = None
 
-    def mmseq2(self, output_dir):
+    def mmseq2(self, output_dir=None):
+
+        if output_dir is None:
+            output_dir = self._output_dir
 
         query, _ = self._get_query_from_fasta(self._fasta_string)
 
         cf.run(queries=query, 
-            result_dir=self._output_dir, 
+            result_dir=output_dir, 
             num_models=0,
             is_complex=self.is_complex,
             user_agent="colabfold/1.5.5"
