@@ -139,7 +139,7 @@ class SPIBResult():
 
         if traj_idx is not None:
             idx = np.atleast_1d(traj_idx)
-            state = np.hstack([self._traj[i]["labels"] for i in idx])
+            state = np.hstack([self._traj[i]["labels"].nonzero()[1] for i in idx])
         else:
             state = np.hstack([traj["labels"].nonzero()[1] for traj in self._traj])
         return state
