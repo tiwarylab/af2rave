@@ -41,8 +41,8 @@ class CVReporter(object):
         self.buffer = np.zeros(self.n_cv)
         self.format = "{} " + "{:.4f} " * self.n_cv + "\n"
         if not append:
-            self._out.write("#! FIELD time ",
-                            " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv]),
+            self._out.write("#! FIELD time " +
+                            " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv]) +
                             "\n")
 
     def __del__(self):
