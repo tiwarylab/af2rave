@@ -7,12 +7,12 @@ import mdtraj as md
 from numba import njit
 
 from .feature import Feature
-
+from numpy.typing import NDArray
 
 class FeatureSelection(object):
 
     def __init__(self,
-                 pdb_name: list[str],
+                 pdb_name: str | list[str],
                  ref_pdb: str = None) -> None:
         '''
         Initialize the FeatureSelection object.
@@ -43,19 +43,19 @@ class FeatureSelection(object):
         self.ref = md.load(self.ref_pdb)
 
         # these two will be populated by the rank_features method
-        self.names = None
-        self.features = None
+        self.names = []
+        self.features = {}
 
     @property
-    def feature_array(self):
+    def feature_array(self) -> NDArray:
         return np.array([self.features[fn].ts for fn in self.names]).T
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.pdb_name)
 
     # ===== Preprocessing =====
 
-    def get_rmsd(self, selection: str = "name CA") -> np.ndarray:
+    def get_rmsd(self, selection: str = "name CA") -> NDArray:
         '''
         Get the RMSD of the atoms in the selection for each frame in the trajectory.
 
@@ -74,7 +74,7 @@ class FeatureSelection(object):
         rmsd = md.rmsd(self.traj, self.ref, atom_indices=atom_indices) * 10
         return np.array(rmsd)
 
-    def filter_by_rmsd(self, selection="name CA", rmsd_cutoff: float = 10.0) -> np.ndarray:
+    def filter_by_rmsd(self, selection="name CA", rmsd_cutoff: float = 10.0) -> NDArray:
         '''
         Filter structures with a RMSD cutoff.
 
@@ -100,10 +100,52 @@ class FeatureSelection(object):
         return rmsd[mask]
 
     # ===== Feature selection =====
+    
+    def _get_atom_index_from_selection(self, selection: str) -> NDArray:
+        '''
+        Get the atom indices from the selection string.
+
+        :param selection: str: The selection string.
+        :return: np.ndarray: The atom indices.
+        '''
+
+        try:
+            atom_index = self.traj.top.select(selection)
+        except:
+            raise ValueError("Selection is invalid.")
+        return atom_index
+    
+    def _get_atom_pairs(self, selection: str | tuple[str, str]) -> NDArray:
+        '''
+        Get the atom pairs from the selection string.
+
+        :param selection: str: The selection string.
+        :return: np.ndarray: The atom pairs.
+        '''
+
+        from itertools import combinations, product
+
+        if isinstance(selection, str):
+            atom_index = self._get_atom_index_from_selection(selection)
+            if len(atom_index) < 2:
+                raise ValueError(f"Selection '{selection}' does not contain enough atoms ({len(atom_index)}).")
+            atom_pairs = np.array(list(combinations(atom_index, 2)))
+        elif isinstance(selection, tuple):
+            if len(selection) != 2:
+                raise ValueError("Selection must be a tuple of two strings.")
+            a, b = selection
+            idx_a = self._get_atom_index_from_selection(a)
+            idx_b = self._get_atom_index_from_selection(b)
+            if len(idx_a) == 0 or len(idx_b) == 0:
+                raise ValueError(f"Selection '{selection}' does not contain enough atoms.")
+            atom_pairs = np.array(list(product(idx_a, idx_b)))
+        else:
+            raise ValueError("Selection must be a string or a tuple of two strings.")
+        return atom_pairs
 
     def rank_feature(self,
-                     selection: str = "name CA"
-                     ) -> tuple[dict[Feature], list[str], np.array]:
+                     selection: str | tuple[str] | list[str | tuple[str]] = "name CA"
+                     ) -> tuple[dict[Feature], list[str], NDArray]:
         '''
         Rank the features by the coefficient of variation.
 
@@ -113,30 +155,28 @@ class FeatureSelection(object):
         :return cv: list[float], list of coefficient of variance
         '''
 
-        from itertools import combinations
+        if isinstance(selection, (str, tuple)):
+            atom_pairs = self._get_atom_pairs(selection)
+        elif isinstance(selection, list):
+            atom_pairs = np.vstack([self._get_atom_pairs(s) for s in selection])
+        else:
+            raise ValueError("Selection must be a string, a tuple of two strings, or a list of them.")
 
-        try:
-            atom_index = self.traj.top.select(selection)
-        except:
-            raise ValueError("Selection is invalid.")
-        assert len(atom_index) > 1, f"Selection does not contain enough atoms ({len(atom_index)})."
-
-        atom_pairs = list(combinations(atom_index, 2))
         pw_dist = md.compute_distances(self.traj, atom_pairs, periodic=False) * 10
 
-        self.features = {}
-        self.names = ["" for _ in atom_pairs]
+        names = ["" for _ in atom_pairs]
         for i, ap in enumerate(atom_pairs):
             f = Feature(ap, self.ref.top, pw_dist[:, i])
             self.features[f.name] = f
-            self.names[i] = f.name
+            names[i] = f.name
+        self.names += names
 
         # sort the features by coefficient of variation
         cv = np.std(pw_dist, axis=0) / np.mean(pw_dist, axis=0)
         rank = np.argsort(cv)[::-1]
-        self.names = [self.names[i] for i in rank]
+        names = [names[i] for i in rank]
 
-        return self.features, self.names, cv[rank]
+        return names, cv[rank]
 
     # ===== AMINO interface =====
 
