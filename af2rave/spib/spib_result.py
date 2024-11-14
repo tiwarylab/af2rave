@@ -2,10 +2,13 @@
 Container class for SPIB results.
 '''
 
-from typing import Union
 import numpy as np
 import pickle
 from ..colvar import Colvar
+
+from typing import Union
+from numpy.typing import NDArray
+
 
 class SPIBResult():
 
@@ -34,6 +37,7 @@ class SPIBResult():
             self._traj[i]["representation"] = self._np_load("representation", i)
 
         # remove stale state labels
+        self._n_input_labels = self._traj[0]["labels"].shape[1]
         self._converged_states = self._get_converged_states()
         state_idx = np.where(self._converged_states)[0]
         for i in range(self._n_traj):
@@ -58,23 +62,32 @@ class SPIBResult():
             return np.load(f"{self._prefix}_traj{i_traj}_{keyword}{self._postfix}")
 
     @classmethod
-    def from_file(cls, filename: str):
+    def from_file(cls, filename: str) -> "SPIBResult":
         return pickle.load(open(filename, "rb"))
 
-    def to_file(self, filename: str):
+    def to_file(self, filename: str) -> None:
         pickle.dump(self, open(filename, "wb"))
 
     @property
-    def dt(self):
+    def dt(self) -> float:
+        '''
+        Time lag for this run.
+        '''
         return self._dt
 
     @property
-    def n_traj(self):
+    def n_traj(self) -> int:
+        '''
+        The number of input trajectories.
+        '''
         return self._n_traj
 
     @property
-    def n_input_labels(self):
-        return self._traj[0]["labels"].shape[1]
+    def n_input_labels(self) -> int:
+        '''
+        The number of initial states/input labels.
+        '''
+        return self._n_input_labels
 
     @property
     def n_converged_states(self) -> int:
@@ -83,7 +96,7 @@ class SPIBResult():
         '''
         return np.sum(self._converged_states)
 
-    def _get_converged_states(self) -> np.ndarray:
+    def _get_converged_states(self) -> NDArray:
         '''
         Return a one-hot encoding of all remaining states.
 
@@ -112,13 +125,18 @@ class SPIBResult():
         p = np.dot(self._z_mean_encoder["weight"], p) + self._z_mean_encoder["bias"].reshape(-1, 1)
         return p
 
-    def project_colvar(self, X: Colvar):
+    def project_colvar(self, X: Colvar) -> Colvar:
+        '''
+        Project the input colvar into the latent space.
 
-        Z = X.map(self.project, insitu=False)
+        :param X: The input colvar to project.
+        :type X: Colvar
+        :return: The projected colvar.
+        :rtype: Colvar
+        '''
+        return X.map(self.project, insitu=False)
 
-        return Z
-
-    def get_latent_representation(self, traj_idx: Union[list[int], int] = None):
+    def get_latent_representation(self, traj_idx: Union[list[int], int] = None) -> NDArray:
         '''
         Return the latent representation of the trajectory.
         If no index is provides, return all trajectories.
@@ -157,12 +175,12 @@ class SPIBResult():
             traj = np.hstack([np.full(traj["labels"].shape[0], i) for i, traj in enumerate(self._traj)])
         return traj
 
-    def get_probability_distribution(self, nbins=200):
+    def get_probability_distribution(self, nbins=200) -> tuple[NDArray, NDArray, NDArray]:
 
         h, x, y = np.histogram2d(*self.get_latent_representation(), bins=nbins, density=True)
         return x, y, h.T    # what the hell is this transpose?
 
-    def get_free_energy(self, nbins=200):
+    def get_free_energy(self, nbins=200) -> tuple[NDArray, NDArray, NDArray]:
         '''
         Get the free energy as the negative logarithm of the probability distribution. Unit: kT
 

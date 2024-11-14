@@ -3,22 +3,25 @@ This class handles a PLUMED style COLVAR file.
 '''
 
 import numpy as np
+from typing import Union, Self
+
+from numpy._typing._array_like import NDArray
 
 
 class Colvar(object):
 
-    def __init__(self, header=[], time=np.array([]), data=np.array([])):
+    def __init__(self, header=[], time=np.array([]), data=np.array([])) -> None:
         self._header = header
         self._time = time
         self._data = data
 
     @classmethod
-    def from_file(cls, filename: str):
+    def from_file(cls, filename: str) -> "Colvar":
         colvar = cls()
         colvar.read(filename)
         return colvar
 
-    def _get_header_from_file(self):
+    def _get_header_from_file(self) -> list[str]:
 
         with open(self._filename, 'r') as file:
             headers = file.readline().strip().split()
@@ -29,7 +32,7 @@ class Colvar(object):
 
         return headers[2:]
 
-    def stride(self, interval: int):
+    def stride(self, interval: int) -> Self:
         self._data = self._data[::interval]
         self._time = self._time[::interval]
         return self
@@ -94,12 +97,20 @@ class Colvar(object):
         '''
         Append the data along the time axis in place.
         The incoming data should contain all columns in the base data.
+        If the Colvar to append to is empty, the header will be copied from the incoming data.
 
         :param data: The incoming data.
         :type data: Colvar
         :return: None
         :raises ValueError: If the incoming data does not have all columns in the base data.
         '''
+
+        # if myself is initialized as empty, simply copy
+        if len(self._header) == 0:
+            self._header = data.header
+            self._data = data.data
+            self._time = data.time
+            return
 
         index = self._match_header(self._header, data.header)
         if index is None:
@@ -130,7 +141,7 @@ class Colvar(object):
 
         return new_colvar
 
-    def map(self, func: callable, insitu=True):
+    def map(self, func: callable, insitu=True) -> Union["Colvar", None]:
         '''
         Apply a function to the data. The function should take in a numpy array and return a numpy array.
         '''
@@ -140,7 +151,7 @@ class Colvar(object):
             return Colvar(self._header, self._time, func(self._data))
 
     @property
-    def header(self):
+    def header(self) -> list[str]:
         return self._header
 
     @property
@@ -153,7 +164,7 @@ class Colvar(object):
 
     # python magic functions
     # --------------------------------
-    def __contains__(self, key):
+    def __contains__(self, key) -> bool:
         return key in self._header
 
     def __getitem__(self, key):
@@ -162,7 +173,7 @@ class Colvar(object):
         else:
             raise KeyError(f"{key} does not exist.")
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value) -> None:
         if len(value) != self.shape[1]:
             raise ValueError("The incoming data does not have the same number of entries as the base data.")
         if key not in self._header:
@@ -171,7 +182,7 @@ class Colvar(object):
         else:
             self._data[self._header.index(key)] = value
 
-    def __delitem__(self, key):
+    def __delitem__(self, key) -> None:
         if key in self._header:
             idx = self._header.index(key)
             self._header.pop(idx)

@@ -16,7 +16,7 @@ except ImportError:
 
 class AMINO(object):
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> "AMINO":
 
         self._n = kwargs.get('n', 20)
         self._bins = kwargs.get('bins', 50)
