@@ -17,7 +17,13 @@ class ColabFold(AlphaFoldBase):
         super().__init__(**kwargs)
         self._queries = None
 
-    def mmseq2(self, output_dir=None):
+    def mmseq2(self, output_dir=None) -> None:
+        '''
+        Run MMseqs2 on with server.
+
+        :param output_dir: Output directory. If set this will override any previously set output directory.
+        :return: None
+        '''
 
         if output_dir is None:
             output_dir = self._output_dir
@@ -33,7 +39,15 @@ class ColabFold(AlphaFoldBase):
         
         self.set_msa(Path(output_dir) / f"{self._name}.a3m")
 
-    def predict(self, output_dir = None, msa="8:16", num_seeds=128, num_recycles=1):
+    def predict(self, output_dir: str = None, msa="8:16", num_seeds=128, num_recycles=1):
+        '''
+        Run Alphafold on Colabfold.
+
+        :param output_dir: Output directory. If set this will override any previously set output directory.
+        :param msa: MSA range, e.g. '8:16'
+        :param num_seeds: Number of seeds. Each seed will yield 5 structures from 5 models.
+        :param num_recycles: Number of recycles
+        '''
 
         if self._msa is not None:
             self._queries = self._get_query_from_msa(self._msa)
@@ -48,15 +62,15 @@ class ColabFold(AlphaFoldBase):
             output_dir = self._output_dir
 
         return cf.run(queries=self._queries, 
-                    result_dir=output_dir, 
-                    is_complex=self.is_complex,
-                    num_seeds=num_seeds,
-                    num_models=5,
-                    num_recycles=num_recycles,
-                    user_agent="colabfold/1.5.5",
-                    max_seq=int(max_seq),
-                    max_extra_seq=int(max_extra_seq),
-                    )
+                      result_dir=output_dir, 
+                      is_complex=self.is_complex,
+                      num_seeds=num_seeds,
+                      num_models=5,
+                      num_recycles=num_recycles,
+                      user_agent="colabfold/1.5.5",
+                      max_seq=int(max_seq),
+                      max_extra_seq=int(max_extra_seq),
+                      )
     
     def _get_query_from_msa(self, a3m_string: str):
 
