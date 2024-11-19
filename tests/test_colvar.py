@@ -94,6 +94,57 @@ def test_tappend_with_longer():
     assert colvar2.shape == (3, 2 * DAT_LENGTH)
     check_reproduce(colvar2)
 
+def test_tappend_from_nothing():
+    colvar = Colvar()
+    colvar2 = Colvar.from_file("./tests/test_colvars/base.dat")
+    colvar.tappend(colvar2)
+    assert colvar.shape == (DAT_COL, DAT_LENGTH)
+    assert np.allclose(colvar._data, colvar2._data)
+    assert colvar.header == colvar2.header
+    check_reproduce(colvar)
+
+
+def test_tappend_from_file():
+    colvar = Colvar.from_file("./tests/test_colvars/base.dat")
+    colvar.tappend("./tests/test_colvars/base.dat")
+    assert colvar.shape == (DAT_COL, 2 * DAT_LENGTH)
+
+
+def test_self_tappend():
+    colvar = Colvar.from_file("./tests/test_colvars/base.dat")
+    colvar.tappend(colvar)
+    assert colvar.shape == (DAT_COL, 2 * DAT_LENGTH)
+    check_reproduce(colvar)
+
+
+def test_tappend_return_val():
+    colvar = Colvar.from_file("./tests/test_colvars/base.dat")
+    colvar2 = colvar.tappend(colvar)
+    assert colvar2 is not None
+    assert colvar2.shape == (DAT_COL, 2 * DAT_LENGTH)
+    assert np.allclose(colvar._data, colvar2._data)
+    check_reproduce(colvar2)
+
+
+def test_tappend_return_val_when_empty():
+    colvar = Colvar()
+    colvar2 = Colvar.from_file("./tests/test_colvars/base.dat")
+    colvar3 = colvar.tappend(colvar2)
+    assert colvar3 is not None
+    assert colvar3.shape == (DAT_COL, DAT_LENGTH)
+    assert np.allclose(colvar3.data, colvar2.data)
+    assert np.allclose(colvar.data, colvar3.data)
+    check_reproduce(colvar2)
+
+
+def test_daisy_chained_tappend():
+    colvar = Colvar()
+    colvar2 = Colvar.from_file("./tests/test_colvars/base.dat")
+    colvar.tappend(colvar2).tappend(colvar2)
+    assert colvar.shape == (DAT_COL, 2 * DAT_LENGTH)
+    assert colvar.header == colvar2.header
+    check_reproduce(colvar)
+
 
 def test_kappend():
     pass

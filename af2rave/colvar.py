@@ -2,8 +2,11 @@
 This class handles a PLUMED style COLVAR file.
 '''
 
+from __future__ import annotations
+
 import numpy as np
-from typing import Union, Self
+from typing import Self
+
 
 from numpy._typing._array_like import NDArray
 
@@ -12,11 +15,11 @@ class Colvar(object):
 
     def __init__(self, header=[], time=np.array([]), data=np.array([])) -> None:
         self._header = header
-        self._time = time
+        self._time = time.reshape(1, -1)
         self._data = data
 
     @classmethod
-    def from_file(cls, filename: str) -> "Colvar":
+    def from_file(cls, filename: str) -> Colvar:
         colvar = cls()
         colvar.read(filename)
         return colvar
@@ -37,7 +40,7 @@ class Colvar(object):
         self._time = self._time[::interval]
         return self
 
-    def read(self, filename: str, stride: int = 1):
+    def read(self, filename: str, stride: int = 1) -> None:
 
         self._filename = filename
         self._header = self._get_header_from_file()
@@ -57,7 +60,7 @@ class Colvar(object):
         if stride > 1:
             self.stride(stride)
 
-    def write(self, filename: str, with_time: bool = True):
+    def write(self, filename: str, with_time: bool = True) -> None:
         with open(filename, "w") as f:
             if with_time and self._time is not None:
                 f.write("#! FIELDS time ")
@@ -93,24 +96,32 @@ class Colvar(object):
                 return None
         return arg_arr
 
-    def tappend(self, data: "Colvar") -> None:
+    def tappend(self, data: Colvar | str, stride: int = None) -> Self:
         '''
         Append the data along the time axis in place.
         The incoming data should contain all columns in the base data.
         If the Colvar to append to is empty, the header will be copied from the incoming data.
 
-        :param data: The incoming data.
+        :param data: The incoming data. Either a colvar object or a filename.
         :type data: Colvar
-        :return: None
+        :param stride: The stride to apply to the incoming data.
+        :type stride: int
+        :return: Self
         :raises ValueError: If the incoming data does not have all columns in the base data.
         '''
+
+        if isinstance(data, str):
+            data = Colvar.from_file(data)
+
+        if stride is not None:
+            data.stride(stride)
 
         # if myself is initialized as empty, simply copy
         if len(self._header) == 0:
             self._header = data.header
             self._data = data.data
             self._time = data.time
-            return
+            return self
 
         index = self._match_header(self._header, data.header)
         if index is None:
@@ -119,7 +130,20 @@ class Colvar(object):
         self._data = np.append(self._data, data._data[index], axis=1)
         self._time = np.append(self._time, data._time)
 
-    def kappend(self, data: 'Colvar') -> None:
+        return self
+
+    def kappend(self, data: Colvar | str) -> Self:
+        '''
+        Append the data along the column axis in place.
+        The incoming data should have the same number of rows as the base data.
+
+        :param data: The incoming data. Either a colvar object or a filename.
+        :type data: Colvar | str
+        :return: Self
+        '''
+
+        if isinstance(data, str):
+            data = Colvar.from_file(data)
 
         if self.shape[1] != data.shape[1]:
             raise ValueError("The incoming date does not have the same number of entries as the base data.")
@@ -127,7 +151,9 @@ class Colvar(object):
         self._header += data.header
         self._data = np.append(self._data, data._data, axis=0)
 
-    def choose(self, columns: list) -> "Colvar":
+        return self
+
+    def choose(self, columns: list) -> Colvar:
         '''
         Choose the columns from the data. Returns a copy including the time.
         '''
@@ -141,12 +167,13 @@ class Colvar(object):
 
         return new_colvar
 
-    def map(self, func: callable, insitu=True) -> Union["Colvar", None]:
+    def map(self, func: callable, insitu=True) -> Colvar:
         '''
         Apply a function to the data. The function should take in a numpy array and return a numpy array.
         '''
         if insitu:
             self._data = func(self._data)
+            return self
         else:
             return Colvar(self._header, self._time, func(self._data))
 
@@ -161,6 +188,10 @@ class Colvar(object):
     @property
     def data(self):
         return self._data
+    
+    @property
+    def time(self):
+        return self._time
 
     # python magic functions
     # --------------------------------
