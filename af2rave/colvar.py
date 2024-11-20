@@ -5,9 +5,6 @@ This class handles a PLUMED style COLVAR file.
 from __future__ import annotations
 
 import numpy as np
-from typing import Self
-
-
 from numpy._typing._array_like import NDArray
 
 
@@ -35,7 +32,7 @@ class Colvar(object):
 
         return headers[2:]
 
-    def stride(self, interval: int) -> Self:
+    def stride(self, interval: int) -> Colvar:
         self._data = self._data[::interval]
         self._time = self._time[::interval]
         return self
@@ -96,7 +93,7 @@ class Colvar(object):
                 return None
         return arg_arr
 
-    def tappend(self, data: Colvar | str, stride: int = None) -> Self:
+    def tappend(self, data: Colvar | str, stride: int = None) -> Colvar:
         '''
         Append the data along the time axis in place.
         The incoming data should contain all columns in the base data.
@@ -132,7 +129,7 @@ class Colvar(object):
 
         return self
 
-    def kappend(self, data: Colvar | str) -> Self:
+    def kappend(self, data: Colvar | str) -> Colvar:
         '''
         Append the data along the column axis in place.
         The incoming data should have the same number of rows as the base data.
