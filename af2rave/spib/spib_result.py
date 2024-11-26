@@ -21,6 +21,8 @@ class SPIBResult():
         self._b = kwargs.get("b", 0)
         self._k = kwargs.get("k", 1)
 
+        self._linear_interpolator = None
+
         # per trajectory data
         self._traj = [{} for _ in range(self._n_traj)]
         for i in range(self._n_traj):
@@ -200,3 +202,41 @@ class SPIBResult():
         f = -np.log(h)
         f -= np.min(f)
         return x, y, f
+    
+    def map_state_label(self, X: NDArray):
+        '''
+        Map a coordinate in the latent space to the most probable state.
+
+        This algorithm interpolates a one-hot vector representation of state labels 
+        over the latent space.
+
+        :param X: The coordinate, shape: npoints * 2
+        :type X: np.ndarray
+        :return: The state label.
+        :rtype: np.ndarray
+        '''
+
+        from scipy.interpolate import CloughTocher2DInterpolator
+
+        def nan_argmax(array: NDArray) -> NDArray:
+            '''
+            This function behaves like np.argmax(array, axis=1), but returns NaN if any element in the row is NaN.
+            '''
+            nan_mask = np.isnan(array).any(axis=1)
+            
+            # Use argmax along axis=1 for rows without NaN
+            max_indices = np.argmax(np.where(nan_mask[:, None], -np.inf, array), axis=1)
+            
+            # Replace indices with NaN where NaN was present in the row
+            max_indices = max_indices.astype(float)  # Convert to float for NaN compatibility
+            max_indices[nan_mask] = np.nan
+            
+            return max_indices
+
+        if getattr(self, "_linear_interpolator", None) is None:
+            x = self.get_latent_representation().T
+            y = np.eye(self.n_converged_states)[self.get_state_label()]
+            self._linear_interpolator = CloughTocher2DInterpolator(x, y)
+        
+        onehot_y = self._linear_interpolator(X)
+        return nan_argmax(onehot_y)
