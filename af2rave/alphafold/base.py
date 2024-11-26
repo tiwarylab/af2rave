@@ -32,7 +32,11 @@ class AlphaFoldBase(object):
 
         # first check if this string is a file
         if os.path.isfile(fasta_string):
-            fasta_string = Path(fasta_string).read_text()
+            fs_file = Path(fasta_string)
+            if fs_file.exists():
+                fasta_string = fs_file.read_text()
+            else:
+                raise FileNotFoundError(f"FASTA file not found: {fasta_string}")
         
         sequences, descriptions = parse_fasta(fasta_string)
         if len(sequences) != 1:
@@ -61,7 +65,11 @@ class AlphaFoldBase(object):
         '''
 
         if os.path.isfile(a3m_msa):
-            a3m_msa = Path(a3m_msa).read_text()
+            a3m_file = Path(a3m_msa)
+            if a3m_file.exists():
+                a3m_msa = Path(a3m_msa).read_text()
+            else:
+                raise FileNotFoundError(f"A3M MSA file not found: {a3m_msa}")
             if name is None:
                 name = Path(a3m_msa).stem
         
