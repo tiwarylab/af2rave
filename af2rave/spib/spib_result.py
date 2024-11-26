@@ -233,10 +233,10 @@ class SPIBResult():
             
             return max_indices
 
-        if getattr(self, "_linear_interpolator", None) is None:
+        if getattr(self, "_interpolator", None) is None:
             x = self.get_latent_representation().T
             y = np.eye(self.n_converged_states)[self.get_state_label()]
-            self._linear_interpolator = CloughTocher2DInterpolator(x, y)
+            self._interpolator = CloughTocher2DInterpolator(x, y)
         
-        onehot_y = self._linear_interpolator(X)
+        onehot_y = self._interpolator(X)
         return nan_argmax(onehot_y)
