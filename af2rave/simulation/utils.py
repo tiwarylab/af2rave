@@ -4,6 +4,7 @@ import mdtraj as md
 from openmm.unit import angstrom, molar
 
 import pdbfixer
+from numbers import Integral
 
 from . import Charmm36mFF
 
@@ -90,9 +91,11 @@ class TopologyMap:
                 return tuple(self.map_atom_index(i) for i in index)
             elif isinstance(index, list):
                 return [self.map_atom_index(i) for i in index]
-            else:
+            elif isinstance(index, Integral):
                 # mostly likely index is either an int or np.int64
                 return self._atom_index_map[int(index)]
+            else:
+                raise TypeError("Unrecognized type for index.")
         except KeyError as e:
             raise ValueError(f"Atom index {e} in the new topology does "
                              "not exist in the old topology.") from e

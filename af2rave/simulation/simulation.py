@@ -13,6 +13,7 @@ from . import Charmm36mFF
 import openmm
 import openmm.app as app
 from openmm.unit import angstroms, picoseconds, kelvin, bar
+from openmm.unit import Quantity, is_quantity
 
 
 class UnbiasedSimulation():
@@ -142,7 +143,7 @@ class UnbiasedSimulation():
 
         return self.simulation
 
-    def save_checkpoint(self, filename: str = None):
+    def save_checkpoint(self, filename: str = None) -> None:
         '''
         Save the checkpoint of the simulation.
 
@@ -153,7 +154,7 @@ class UnbiasedSimulation():
             filename = f"{self._prefix}_out.chk"
         self.simulation.saveCheckpoint(filename)
 
-    def save_pdb(self, filename: str = None):
+    def save_pdb(self, filename: str = None) -> None:
         '''
         Save the final state PDB of the simulation.
 
@@ -167,7 +168,7 @@ class UnbiasedSimulation():
             # and get the latest positions from the simulation context
             app.PDBFile.writeFile(self._top, self.pos, ofs, keepIds=True)
 
-    def _load_checkpoint(self, restart_file: str):
+    def _load_checkpoint(self, restart_file: str) -> None:
         '''
         Load the checkpoint of the simulation.
 
@@ -200,11 +201,11 @@ class UnbiasedSimulation():
         '''
 
         dt = kwargs.get('dt', 0.002 * picoseconds)
-        if isinstance(dt, float):
+        if not is_quantity(dt):
             dt = dt * picoseconds
 
         cutoff = kwargs.get('cutoff', 10.0 * angstroms)
-        if isinstance(cutoff, float):
+        if not is_quantity(cutoff):
             cutoff = cutoff * angstroms
 
         system = self._forcefield.createSystem(
@@ -243,7 +244,7 @@ class UnbiasedSimulation():
         # if the code reaches here something is wrong
         raise RuntimeError("No suitable platform found. Attempted: CUDA, OpenCL, CPU")
 
-    def _get_thermo_reporter(self, steps: int):
+    def _get_thermo_reporter(self, steps: int) -> None | app.StateDataReporter:
         '''
         Initialize the state reporters for the simulation.
         '''
@@ -302,7 +303,7 @@ class UnbiasedSimulation():
 
             return XTCReporter(xtc_file, xtc_freq, append=self._append)
 
-    def _get_pressure(self, **kwargs):
+    def _get_pressure(self, **kwargs) -> Quantity | None:
         '''
         Get the pressure for the simulation.
 
@@ -313,11 +314,11 @@ class UnbiasedSimulation():
         pressure = kwargs.get('pressure', 1.0 * bar)
         if pressure is None:
             return None
-        if isinstance(pressure, float):
+        if not is_quantity(pressure):
             return pressure * bar
         return pressure
 
-    def _get_temperature(self, **kwargs):
+    def _get_temperature(self, **kwargs) -> Quantity:
         '''
         Get the temperature for the simulation.
 
@@ -328,13 +329,13 @@ class UnbiasedSimulation():
         temp = kwargs.get('temp', 310.0 * kelvin)
         if temp is None:
             raise ValueError("Temperature cannot be set to None.")
-        if isinstance(temp, float):
+        if not is_quantity(temp):
             return temp * kelvin
         return temp
 
-    def _add_reporter(self, reporter):
+    def _add_reporter(self, reporter) -> None:
         '''
-        Add a reporter to the simulation.
+        Add a reporter to the simulation. Allows a NoneType reporter which is ignored.
 
         :param reporter: Reporter object
         :type reporter: openmm.app.StateDataReporter | CVReporter | XTCReporter
