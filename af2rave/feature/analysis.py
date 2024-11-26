@@ -4,7 +4,7 @@ import glob
 from natsort import natsorted
 import numpy as np
 import mdtraj as md
-from numba import njit
+from pathlib import Path
 
 from .feature import Feature
 from numpy.typing import NDArray
@@ -26,8 +26,9 @@ class FeatureSelection(object):
         '''
 
         if not isinstance(pdb_name, list):
-            if os.path.isdir(pdb_name):   # If a folder is provided, load all in the folder
-                self.pdb_name = natsorted(glob.glob(os.path.join(pdb_name, "*.pdb")))
+            p = Path(pdb_name)
+            if p.is_dir():   # If a folder is provided, load all in the folder
+                self.pdb_name = natsorted(glob.glob(p / "*.pdb"))
             else:
                 self.pdb_name = [pdb_name]
         else:
@@ -37,10 +38,10 @@ class FeatureSelection(object):
             self.ref_pdb = self.pdb_name[0]
         else:
             self.ref_pdb = ref_pdb
+        self.ref = md.load(self.ref_pdb)
 
         # MDtraj objects
         self.traj = md.load(self.pdb_name)
-        self.ref = md.load(self.ref_pdb)
 
         # these two will be populated by the rank_features method
         self.names = []
@@ -278,8 +279,14 @@ class FeatureSelection(object):
         z = np.array([self.features[fn].ts for fn in feature_name]).T
         npoints = z.shape[0]
 
-        # Reshuffle the data with a random permutation, but keep the first element fixed
-        p = np.hstack((0, np.random.RandomState(seed=randomseed).permutation(npoints - 1) + 1))
+        # Reshuffle the data with a random permutation, but keep the first element/reference fixed
+        if self.ref_pdb in self.pdb_name:
+            idx = self.pdb_name.index(self.ref_pdb)
+        else: 
+            idx = 0
+        p = np.random.RandomState(seed=randomseed).permutation(npoints)
+        lookup = (np.arange(npoints) + np.where(p == idx)[0][0]) % npoints
+        p = p[lookup]
         data = z[p]
 
         # The first element is always a cluster center
@@ -288,17 +295,17 @@ class FeatureSelection(object):
 
         i = 1
         ncenter = 1
+        ndim = data.shape[1]
         while i < npoints:
 
             x_active = data[i:i + batch_size]
 
             # All indices of points that are at least min_dist away from all cluster centers
             center_list = data[center_id[center_id != -1]]
-            distances = self._get_distance_to_center(center_list, x_active)
-            indice = np.nonzero(np.all((distances > min_dist), axis=0))[0]
+            distances = np.linalg.norm(x_active[:, np.newaxis, :] - center_list[np.newaxis, :, :], axis=2) / np.sqrt(ndim)
+            indice = np.nonzero(np.all((distances > min_dist).reshape(ncenter, -1), axis=0))[0]
 
             if len(indice) > 0:
-
                 # the first element will be added as cluster center
                 center_id[ncenter] = p[i + indice[0]]
                 ncenter += 1
@@ -330,23 +337,3 @@ class FeatureSelection(object):
         pca = PCA(n_components=n_components, **kwargs)
         pca.fit(z)
         return pca, pca.transform(z)
-
-    @staticmethod
-    @njit(parallel=True)
-    def _get_distance_to_center(center, coord):
-        '''
-        Calculate the distance of each point to the cluster center.
-        Used by the regular_space_clustering function.
-        '''
-
-        ncenters = center.shape[0]
-        npoints = coord.shape[0]
-        ndims = center.shape[1]
-
-        distance_mat = np.zeros((ncenters, npoints))
-
-        for i in np.arange(ncenters):
-            for j in np.arange(npoints):
-                distance_mat[i, j] = np.linalg.norm(coord[j] - center[i]) / np.sqrt(ndims)
-
-        return distance_mat
