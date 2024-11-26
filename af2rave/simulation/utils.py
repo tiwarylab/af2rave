@@ -7,10 +7,8 @@ import pdbfixer
 
 from . import Charmm36mFF
 
-# python < 3.12 backward compatibility
-from typing import Union
-AtomIndexLike = Union[int, set[int], list[int], list[set[int]]]
-TopologyLike = Union[app.Topology, md.Topology, str]
+AtomIndexLike = int | set[int] | tuple[int] | list[int] | list[set[int]] | list[tuple[int]]
+TopologyLike = app.Topology | md.Topology | str
 
 
 class TopologyMap:
@@ -25,25 +23,26 @@ class TopologyMap:
         :type new_top: app.Topology or md.Topology or str
         '''
 
-        if isinstance(old_top, str):
-            self._old_top = app.PDBFile(old_top).topology
-        elif isinstance(old_top, md.Topology):
-            self._old_top = old_top.to_openmm()
-        elif isinstance(old_top, app.Topology):
-            self._old_top = old_top
-        else:
-            raise ValueError("old_top must be a path to a PDB file or an OpenMM or MDTraj topology object.")
-
-        if isinstance(new_top, str):
-            self._new_top = app.PDBFile(new_top).topology
-        elif isinstance(new_top, md.Topology):
-            self._new_top = new_top.to_openmm()
-        elif isinstance(new_top, app.Topology):
-            self._new_top = new_top
-        else:
-            raise ValueError("new_top must be a path to a PDB file or an OpenMM or MDTraj topology object.")
-
+        self._old_top = self._load_topology(old_top)
+        self._new_top = self._load_topology(new_top)
         self._atom_index_map = self._generate_mapping_table()
+
+    def _load_topology(self, top: TopologyLike) -> app.Topology:
+        '''
+        Load the topology from a file or a topology object.
+
+        :param top: topology, either a path or an OpenMM or MDTraj topology object
+        :type top: app.Topology or md.Topology or str
+        '''
+
+        if isinstance(top, str):
+            return app.PDBFile(top).topology
+        elif isinstance(top, md.Topology):
+            return top.to_openmm()
+        elif isinstance(top, app.Topology):
+            return top
+        else:
+            raise ValueError("top must be a path to a PDB file or an OpenMM or MDTraj topology object.")
 
     def _generate_mapping_table(self):
 
@@ -74,7 +73,7 @@ class TopologyMap:
 
         return forward_map
 
-    def map_atom_index(self, index: AtomIndexLike) -> AtomIndexLike:
+    def map(self, index: AtomIndexLike) -> AtomIndexLike:
         '''
         Map atom index from input PDB to the output PDB file.
 
