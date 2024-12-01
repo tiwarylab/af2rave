@@ -27,6 +27,9 @@ class SPIBProcess(object):
             self._traj = traj
         self._n_traj = len(traj)
         self._kwargs = kwargs
+        
+        # garbage collection
+        self._basename = []
 
         self._traj_data_list = self._load_data()
         self._traj_labels_list = self._init_default_label()
@@ -90,14 +93,15 @@ class SPIBProcess(object):
 
     def run(self, time_lag: int, **kwargs):
 
-        self._basename = "tmp_" + hashlib.md5(str(time.time()).encode()).hexdigest()
+        basename = "tmp_" + hashlib.md5(str(time.time()).encode()).hexdigest()
+        self._basename.append(basename)
         seed = kwargs.get('seed', 42)
 
         spib_kernel(self._traj_data_list, self._traj_labels_list, time_lag,
-                    base_path=self._basename, device=self._device,
+                    base_path=basename, device=self._device,
                     **kwargs)
 
-        prefix = f"{self._basename}/model_dt_{time_lag}"
+        prefix = f"{basename}/model_dt_{time_lag}"
         postfix = f"{seed}.npy"
 
         return SPIBResult(prefix, postfix, self._n_traj, dt=time_lag, 
@@ -105,4 +109,5 @@ class SPIBProcess(object):
                           k=self._k.cpu().numpy())
     
     def __del__(self):
-        shutil.rmtree(self._basename, ignore_errors=True)
+        for b in self._basename:
+            shutil.rmtree(b, ignore_errors=True)
