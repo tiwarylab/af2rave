@@ -39,7 +39,7 @@ def fill_missing_entries(json_data, default_values):
             fill_missing_entries(json_data[key], default_value)
     return json_data
 
-def app_simulation(metadata: dict):
+def app_simulation(metadata: dict, output_json: str = None):
     """
     Run the MD part of af2rave.
     """
@@ -87,7 +87,8 @@ def app_simulation(metadata: dict):
     if kwargs["pdb_file"] is None:
         raise ValueError("pdb_file is required.")
     
-    write_input(metadata, "simulation.json")
+    if output_json is not None:
+        write_input(metadata, output_json)
 
     ubs = simulation.UnbiasedSimulation(**kwargs)
     ubs.run(metadata["steps"])

@@ -33,11 +33,26 @@ class Colvar(object):
         return headers[2:]
 
     def stride(self, interval: int) -> Colvar:
+        '''
+        In-place stride the data with a given interval.
+
+        :param interval: The interval to stride the data.
+        :type interval: int
+        :return: Self
+        '''
         self._data = self._data[::interval]
         self._time = self._time[::interval]
         return self
 
-    def read(self, filename: str, stride: int = 1) -> None:
+    def read(self, filename: str, stride: int = 1) -> Colvar:
+        '''
+        Read a PLUMED-style colvar file into the object.
+
+        :param filename: The filename to read.
+        :type filename: str
+        :param stride: The stride to apply to the data. (Optional, default=1)
+        :type stride: int
+        '''
 
         self._filename = filename
         self._header = self._get_header_from_file()
@@ -56,6 +71,8 @@ class Colvar(object):
         # stride the data
         if stride > 1:
             self.stride(stride)
+        
+        return self
 
     def write(self, filename: str, with_time: bool = True) -> None:
         with open(filename, "w") as f:
