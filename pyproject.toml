@@ -30,6 +30,9 @@ dev = [
     "ruff"  # linting
 ]
 
+[project.scripts]
+af2rave = "af2rave.cli:app"
+
 [project.urls]
 
 bugs = "https://github.com/tiwarylab/af2rave/issues"

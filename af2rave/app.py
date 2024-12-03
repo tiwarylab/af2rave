@@ -39,7 +39,7 @@ def fill_missing_entries(json_data, default_values):
             fill_missing_entries(json_data[key], default_value)
     return json_data
 
-def simulation(metadata: dict):
+def app_simulation(metadata: dict):
     """
     Run the MD part of af2rave.
     """
@@ -86,8 +86,10 @@ def simulation(metadata: dict):
 
     if kwargs["pdb_file"] is None:
         raise ValueError("pdb_file is required.")
+    
+    write_input(metadata, "simulation.json")
 
-    ubs = simulation.SimulationBox(**kwargs)
+    ubs = simulation.UnbiasedSimulation(**kwargs)
     ubs.run(metadata["steps"])
 
     if metadata["save_checkpoint"] is not None:
