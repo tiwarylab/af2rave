@@ -203,14 +203,14 @@ class SPIBResult():
         f -= np.min(f)
         return x, y, f
     
-    def map_state_label(self, X: NDArray):
+    def project_state_label(self, X: NDArray):
         '''
-        Map a coordinate in the latent space to the most probable state.
+        Project a coordinate in the latent space to the most probable state.
 
         This algorithm interpolates a one-hot vector representation of state labels 
         over the latent space.
 
-        :param X: The coordinate, shape: npoints * 2
+        :param X: The coordinate, shape: 2 * npoints
         :type X: np.ndarray
         :return: The state label.
         :rtype: np.ndarray
@@ -232,9 +232,12 @@ class SPIBResult():
             max_indices[nan_mask] = np.nan
             
             return max_indices
+        
+        if X.shape[1] != 2:
+            raise ValueError("The input shape is not compatible with the latent space. Shape of the input need to be N * 2.")
 
         if getattr(self, "_interpolator", None) is None:
-            x = self.get_latent_representation().T
+            x = self.get_latent_representation()
             y = np.eye(self.n_converged_states)[self.get_state_label()]
             self._interpolator = CloughTocher2DInterpolator(x, y)
         
