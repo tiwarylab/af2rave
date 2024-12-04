@@ -50,6 +50,19 @@ def test_write():
     colvar = Colvar.from_file("./tests/test_colvars/base.dat")
     check_reproduce(colvar)
 
+def test_stride():
+    colvar = Colvar.from_file("./tests/test_colvars/base.dat")
+    colvar.stride(2)
+    assert colvar.shape == (DAT_COL, np.ceil(DAT_LENGTH / 2).astype(int))
+    check_reproduce(colvar)
+
+def test_stride_no_time():
+    colvar = Colvar.from_file("./tests/test_colvars/base.dat")
+    colvar._time = None
+    colvar.stride(2)
+    assert colvar.shape == (DAT_COL, np.ceil(DAT_LENGTH / 2).astype(int))
+    check_reproduce(colvar)
+
 
 def test_choose():
     colvar = Colvar.from_file("./tests/test_colvars/base.dat")
@@ -103,6 +116,13 @@ def test_tappend_from_nothing():
     assert colvar.header == colvar2.header
     check_reproduce(colvar)
 
+def test_tappend_no_time():
+    colvar = Colvar.from_file("./tests/test_colvars/base.dat")
+    colvar2 = colvar.choose(["d5_1664", "d5_1665", "d5_1666"])
+    colvar2._time = None
+    colvar2.tappend(colvar2)
+    assert colvar2.shape == (3, 2 * DAT_LENGTH)
+    check_reproduce(colvar2)
 
 def test_tappend_from_file():
     colvar = Colvar.from_file("./tests/test_colvars/base.dat")
@@ -184,6 +204,15 @@ def test_magic_setitem_wrong_length():
     colvar = Colvar.from_file("./tests/test_colvars/base.dat")
     with pytest.raises(ValueError):
         colvar["pratyush"] = np.ones(DAT_LENGTH - 1)
+
+
+def test_magic_setitem_from_empty():
+    colvar = Colvar()
+    colvar["pratyush"] = np.ones(DAT_LENGTH)
+    assert "pratyush" in colvar
+    assert np.allclose(colvar["pratyush"], np.ones(DAT_LENGTH))
+    assert colvar.shape == (1, DAT_LENGTH)
+    check_reproduce(colvar)
 
 
 def test_magic_delitem():

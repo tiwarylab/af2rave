@@ -6,17 +6,27 @@ from __future__ import annotations
 
 import numpy as np
 from numpy._typing._array_like import NDArray
+from pathlib import Path
 
 
 class Colvar(object):
 
-    def __init__(self, header=[], time=np.array([]), data=np.array([])) -> None:
+    def __init__(self, header=[], time=None, data=np.array([])) -> None:
         self._header = header
-        self._time = time.reshape(1, -1)
+        if time is not None:
+            self._time = time.reshape(1, -1)
+        else:
+            self._time = None
         self._data = data
 
     @classmethod
     def from_file(cls, filename: str) -> Colvar:
+        '''
+        Construct a Colvar object from a file. Same as Colvar().read(filename).
+
+        :param filename: The filename to read.
+        :type filename: str
+        '''
         colvar = cls()
         colvar.read(filename)
         return colvar
@@ -28,7 +38,7 @@ class Colvar(object):
 
         # check for redudant headers
         if len(headers) != len(set(headers)):
-            raise ValueError("Non-unique metadate found in the file.")
+            raise ValueError("Non-unique metadata found in the file.")
 
         return headers[2:]
 
@@ -40,8 +50,9 @@ class Colvar(object):
         :type interval: int
         :return: Self
         '''
-        self._data = self._data[::interval]
-        self._time = self._time[::interval]
+        self._data = self._data[:, ::interval]
+        if self._time is not None:
+            self._time = self._time[::interval]
         return self
 
     def read(self, filename: str, stride: int = 1) -> Colvar:
@@ -52,12 +63,18 @@ class Colvar(object):
         :type filename: str
         :param stride: The stride to apply to the data. (Optional, default=1)
         :type stride: int
+        :return: Self
+        :raises FileNotFoundError: If the file does not exist.
+        :raises ValueError: If the number of columns in the file does not match the number of headers.
         '''
 
         self._filename = filename
+        if not Path(filename).exists():
+            raise FileNotFoundError(f"File {filename} does not exist.")
+
         self._header = self._get_header_from_file()
 
-        self._data = np.loadtxt(self._filename, unpack=True)
+        self._data = np.loadtxt(self._filename, unpack=True).reshape(len(self._header), -1)
         if self.shape[0] != len(self._header):
             raise ValueError("Number of columns in the file does not match the number of headers."
                              f"Got {self.shape[0]} columns and {len(self._header)} headers.")
@@ -75,6 +92,14 @@ class Colvar(object):
         return self
 
     def write(self, filename: str, with_time: bool = True) -> None:
+        '''
+        Write the Colvar object to a file. This will overwrite the file if it exists.
+
+        :param filename: The filename to write to.
+        :type filename: str
+        :param with_time: If True, write the time data as well.
+        :type with_time: bool
+        '''
         with open(filename, "w") as f:
             if with_time and self._time is not None:
                 f.write("#! FIELDS time ")
@@ -141,8 +166,13 @@ class Colvar(object):
         if index is None:
             raise ValueError("The incoming data does not contain all the columns of the base data.")
 
+        # check the time, either both have time or none
+        if (self._time is None) != (data.time is None):
+            raise ValueError("Both data should have time or none.")
+
         self._data = np.append(self._data, data._data[index], axis=1)
-        self._time = np.append(self._time, data._time)
+        if self._time is not None:
+            self._time = np.append(self._time, data._time)
 
         return self
 
@@ -193,18 +223,39 @@ class Colvar(object):
 
     @property
     def header(self) -> list[str]:
+        '''
+        The header of the Colvar. Note that time is not considered one of the fields.
+
+        :return: The header of the Colvar.
+        :rtype: list[str]
+        '''
         return self._header
 
     @property
-    def shape(self):
+    def shape(self) -> tuple[int]:
+        '''
+        The shape of the header. The first dimension is the number of fields, the second dimension is the number of rows.
+
+        :return: The shape of the data.
+        :rtype: tuple[int]
+        '''
         return self._data.shape
 
     @property
     def data(self):
+        '''
+        Return the data of the Colvar.
+        '''
         return self._data
     
     @property
     def time(self):
+        '''
+        Return the time data of the Colvar. Can be None if the data does not have time.
+
+        :return: The time data.
+        :rtype: numpy.ndarray | None
+        '''
         return self._time
 
     # python magic functions
@@ -219,6 +270,11 @@ class Colvar(object):
             raise KeyError(f"{key} does not exist.")
 
     def __setitem__(self, key, value) -> None:
+        # first check if we are empty
+        if len(self._header) == 0:
+            self._header = [key]
+            self._data = value.reshape(1, -1)
+            return
         if len(value) != self.shape[1]:
             raise ValueError("The incoming data does not have the same number of entries as the base data.")
         if key not in self._header:
