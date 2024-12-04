@@ -198,7 +198,7 @@ class SimulationBox:
 
         # initialize a mapping object
         self.top_map = TopologyMap(app.PDBFile(self._filename).topology, self.top)
-        self.map_atom_index = self.top_map.map_atom_index
+        self.map_atom_index = self.top_map.map
 
         return modeller.positions, modeller.topology
 

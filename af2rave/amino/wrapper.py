@@ -60,7 +60,7 @@ class AMINO(object):
             colvar = Colvar.from_file(filename)
         else:
             for f in filename:
-                colvar._colvar.tappend(Colvar.from_file(f))
+                colvar.tappend(Colvar.from_file(f))
         
         return AMINO.from_colvar(colvar, **kwargs)
 
