@@ -1,31 +1,29 @@
-from af2rave.feature.colvar import Colvar
+from af2rave.colvar import Colvar
 import af2rave.amino as amino
 import pytest
-import numpy as np
-import os
 
+from tests.test_colvar import check_reproduce
 
 def test_import():
     assert amino is not None
     assert amino.AMINO is not None
 
+class TestInterface:
 
-def test_from_colvar():
-    a = amino.AMINO()
-    a.from_colvar("./tests/test_colvars/base.dat")
-    assert a.result is not None
-    assert a.get_colvar() is not None
-    a.write_colvar("./tests/test_colvars/test.dat")
+    a = amino.AMINO.from_file("./tests/test_colvars/base.dat")
 
-    new_colvar = Colvar("./tests/test_colvars/test.dat")
-    # ["d1412_1665", "d1182_1666"]
-    assert new_colvar.header == a.get_colvar().header
-    assert new_colvar.shape == a.get_colvar().shape
-    assert np.allclose(new_colvar._data, a.get_colvar()._data)
-    os.remove("./tests/test_colvars/test.dat")
+    def test_result(self):
+        assert self.a.result is not None
+        assert len(self.a.result) > 0
 
+    def test_to_colvar(self):
+        assert self.a.to_colvar() is not None
+        assert self.a.to_colvar().shape[0] == len(self.a.result)
 
-def test_no_run_get_colvar():
-    a = amino.AMINO()
-    with pytest.raises(ValueError):
-        a.get_colvar()
+    def test_integrity_colvar(self):
+        check_reproduce(self.a.to_colvar())
+
+    b = amino.AMINO()
+    def test_no_run_get_colvar(self):
+        with pytest.raises(ValueError):
+            self.b.to_colvar()

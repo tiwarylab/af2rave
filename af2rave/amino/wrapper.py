@@ -7,16 +7,19 @@ universially applicable. For more general use, please use the cli module
 by calling `python -m af2rave.amino`
 '''
 
+from __future__ import annotations
+
 from ..colvar import Colvar
 try:
     import amino
 except ImportError:
     from . import amino
 
+from pathlib import Path
 
 class AMINO(object):
 
-    def __init__(self, **kwargs) -> "AMINO":
+    def __init__(self, **kwargs) -> None:
 
         self._n = kwargs.get('n', 20)
         self._bins = kwargs.get('bins', 50)
@@ -32,48 +35,55 @@ class AMINO(object):
             raise ValueError("Please run AMINO first.")
         return self._result
 
-    def _run_from_self(self) -> None:
-        ops = [amino.OrderParameter(ll, dd) for ll, dd in zip(self._label, self._data)]
+    def run(self, label, data) -> None:
+        ops = [amino.OrderParameter(l, d) for l, d in zip(label, data)]
         result = amino.find_ops(
             ops, self._n, self._bins,
             bandwidth=self._kde_bandwidth, verbose=self._verbose
         )
         self._result = [i.name for i in result]
 
-    def from_timeseries(self, label, data) -> list[str]:
-
-        if len(label) != len(data):
-            raise ValueError("The length of label and data do not match.")
-        self._label = label
-        self._data = data
-        self._colvar._data = self._data
-        self._colvar.header = self.label
-        self._run_from_self()
-
-        return self.result
-
-    def from_colvar(self, colvar: 'Colvar') -> list[str]:
+    @classmethod
+    def from_file(cls, filename: str | list[str], **kwargs) -> AMINO:
         '''
-        Run AMINO from a Colvar object or a COLVAR file.
+        Run AMINO from a COLVAR file.
 
-        :param colvar: Colvar object or a COLVAR file.
-        :type colvar: Colvar or str
-        :return: List of AMINO order parameters.
-        :rtype: list[str]
+        :param filename: The COLVAR file or files to read.
+        :type filename: str | list[str]
+        :return: AMINO object, with the result stored in `result`.
+        :rtype: AMINO
         '''
 
-        if isinstance(colvar, Colvar):
-            self._colvar = colvar
+        colvar = Colvar()
+
+        if isinstance(filename, str):
+            colvar = Colvar.from_file(filename)
         else:
-            self._colvar = Colvar(colvar)
-        self._data = colvar._data
-        self._label = colvar.header
-        self._run_from_self()
+            for f in filename:
+                colvar._colvar.tappend(Colvar.from_file(f))
+        
+        return AMINO.from_colvar(colvar, **kwargs)
 
-        return self.result
+    @classmethod
+    def from_colvar(cls, colvar: Colvar, **kwargs) -> AMINO:
+        '''
+        Run AMINO from a Colvar object.
 
-    def get_colvar(self) -> Colvar:
+        :param colvar: Colvar object.
+        :type colvar: Colvar or str
+        :return: AMINO object, with the result stored in `result`.
+        :rtype: AMINO
+        '''
+
+        if not isinstance(colvar, Colvar):
+            raise ValueError("The input should be a Colvar object.")
+
+        amino = cls(**kwargs)
+
+        amino._colvar = colvar
+        amino.run(colvar.header, colvar.data)
+
+        return amino
+
+    def to_colvar(self) -> Colvar:
         return self._colvar.choose(self.result)
-
-    def write_colvar(self, filename: str) -> None:
-        self.get_colvar().write(filename)
