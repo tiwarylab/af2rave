@@ -4,7 +4,7 @@ Wrapper module for AMINO.
 This module defines a AMINO class that stores the model parameters.
 The default parameters are best suited for af2rave use and may not be
 universially applicable. For more general use, please use the cli module
-by calling `python -m af2rave.amino`
+by calling `af2rave amino`
 '''
 
 from __future__ import annotations
@@ -15,11 +15,26 @@ try:
 except ImportError:
     from . import amino
 
-from pathlib import Path
-
 class AMINO(object):
 
     def __init__(self, **kwargs) -> None:
+        '''
+        AMINO module reduces the redudancy in choice of collective variables.
+        Usually the default parameters are best suited for af2rave use. 
+        If you have memory issues, consider reducing the number of bins or striding the data.
+        The performance of the code is O(N^2M),
+        where N is the number of order parameters and M is the number of data points.
+        The memory bottleneck is the mutual information calculation.
+
+        :param n: The maximum number of order parameters to consider. Default is 20.
+        :type n: int
+        :param bins: The number of bins for the computing the mutual information. Default is 50.
+        :type bins: int
+        :param kde_bandwidth: The bandwidth for the kernel density estimation. Default is 0.02.
+        :type kde_bandwidth: float
+        :param verbose: Whether to print the progress. Default is False.
+        :type verbose: bool
+        '''
 
         self._n = kwargs.get('n', 20)
         self._bins = kwargs.get('bins', 50)
@@ -31,11 +46,27 @@ class AMINO(object):
 
     @property
     def result(self) -> list[str]:
+        '''
+        The resulting order parameters from AMINO.
+
+        :return: The list of order parameters.
+        :rtype: list[str]
+        '''
         if self._result is None:
             raise ValueError("Please run AMINO first.")
         return self._result
 
-    def run(self, label, data) -> None:
+    def run(self, label: list[str], data) -> None:
+        '''
+        Run AMINO on the given data. This is not the recommended way to use AMINO.
+        Consider using the class methods `from_file` and `from_colvar` instead.
+
+        :param label: The list of order parameter labels.
+        :type label: list[str]
+        :param data: The data of the order parameters, shaped (n_order_parameters, n_data_points)
+        :type data: NDArray
+        '''
+
         ops = [amino.OrderParameter(l, d) for l, d in zip(label, data)]
         result = amino.find_ops(
             ops, self._n, self._bins,
@@ -46,7 +77,7 @@ class AMINO(object):
     @classmethod
     def from_file(cls, filename: str | list[str], **kwargs) -> AMINO:
         '''
-        Run AMINO from a COLVAR file.
+        Run AMINO from a COLVAR file. For keyword arguments, see `__init__`.
 
         :param filename: The COLVAR file or files to read.
         :type filename: str | list[str]
@@ -67,7 +98,7 @@ class AMINO(object):
     @classmethod
     def from_colvar(cls, colvar: Colvar, **kwargs) -> AMINO:
         '''
-        Run AMINO from a Colvar object.
+        Run AMINO from a Colvar object. For keyword arguments, see `__init__`.
 
         :param colvar: Colvar object.
         :type colvar: Colvar or str
@@ -86,4 +117,11 @@ class AMINO(object):
         return amino
 
     def to_colvar(self) -> Colvar:
+        '''
+        Output the chosen order parameters and their input values as a Colvar object.
+        Equivalent to `input_colvar.choose(self.result)`.
+
+        :return: The Colvar object with the chosen order parameters.
+        :rtype: Colvar
+        '''
         return self._colvar.choose(self.result)

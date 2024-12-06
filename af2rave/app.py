@@ -4,20 +4,26 @@ import json
 from pathlib import Path
 
 from . import simulation
+from . import amino
+from .colvar import Colvar
 
 def parse_input(input_file):
     """
-    Parse the input file.
+    Parse the input json, either a file or a json string.
     """
 
-    # Check if the input file exists
-    if not Path(input_file).exists():
-        raise FileNotFoundError(f"{input_file} does not exist.")
-
-    # Read the input file
-    with open(input_file, 'r') as f:
-        data = json.load(f)
-    return data
+    if Path(input_file).exists():
+        with open(input_file, 'r') as f:
+            data = json.load(f)
+        return json.load(f)
+    else:
+        # in such case the input json might be a string rather than a filename
+        try:
+            data = json.loads(input_file)
+        except json.JSONDecodeError:
+            print(f"Illegal JSON string or input JSON file does not exist.")
+            return -1
+        return data
 
 def write_input(data, output_file):
     """Write the input file."""
@@ -97,3 +103,26 @@ def app_simulation(metadata: dict, output_json: str = None):
         ubs.save_checkpoint(metadata["save_checkpoint"])
     if metadata["save_pdb"] is not None:
         ubs.save_pdb(metadata["save_pdb"])
+
+
+def app_amino(metadata,
+              output_json: str = None):
+    
+    default_values = {
+        "filename": None,
+        "n": 20,
+        "bins": 50,
+        "kde_bandwidth": 0.02,
+        "verbose": False
+    }
+    metadata = fill_missing_entries(metadata, default_values)
+
+    if metadata["filename"] is None:
+        raise ValueError("An input file is required.")
+    if output_json is not None:
+        write_input(metadata, output_json)
+
+    a = amino.AMINO.from_file(**metadata)
+    print(f"\n{len(a.result)} AMINO Order Parameters:")
+    for i in a.result:
+        print(i)

@@ -310,7 +310,15 @@ def cluster(ops: list[OrderParameter], seeds: list[OrderParameter], mut: Distanc
     centers = np.array([ops.index(c) for c in seeds])
     new_centers = np.zeros_like(centers)
 
+    max_iteration = 500
+    it = 0
+
     while np.any(set(centers) != set(new_centers)):
+
+        it += 1
+        if it > max_iteration:
+            print("Maximum iteration reached.")
+            break
 
         # first put in all cluster centers
         group = np.full(len(ops), -1)
