@@ -1,5 +1,5 @@
 Welcome to af2rave's documentation!
-======================================
+*********
 
 .. toctree::
    :maxdepth: 2
@@ -9,7 +9,6 @@ Welcome to af2rave's documentation!
    installation
    usage
    modules
-   contributing
    authors
    history
 

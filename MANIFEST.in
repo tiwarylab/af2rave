@@ -1,7 +1,7 @@
-include AUTHORS.rst
-include HISTORY.rst
+include docs/authors.rst
+include docs/history.rst
 include LICENSE
-include README.rst
+include README.md
 
 graft af2rave/simulation/forcefield
 
