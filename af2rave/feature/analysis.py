@@ -1,5 +1,4 @@
 '''Feature analysis module for AF2RAVE'''
-import os
 import glob
 from natsort import natsorted
 import numpy as np
@@ -15,7 +14,7 @@ class FeatureSelection(object):
                  pdb_name: str | list[str],
                  ref_pdb: str = None) -> None:
         '''
-        Initialize the FeatureSelection object.
+        The object reads an ensemble of PDB files and performs feature selection.
 
         :param pdb_name: The name(s) of the PDB file from reduced MSA.
         :type pdb_name: list[str]
@@ -56,23 +55,41 @@ class FeatureSelection(object):
 
     # ===== Preprocessing =====
 
+    def _select_and_validate(self, selection: str, min_atoms: int = 1) -> NDArray:
+        '''
+        Select atoms from the trajectory and validate the selection 
+        to have at least min_atoms atoms.
+
+        :param selection: str: The selection string.
+        :param min_atoms: int: The minimum number of atoms required. Default: 1.
+            set to None to disable the check.
+        :return: np.ndarray: The atom indices.
+        :rtype: np.ndarray
+        :raises ValueError: If the selection is invalid or does not contain enough atoms.
+        '''
+
+        try:
+            atom_indices = self.ref.top.select(selection)
+        except:
+            raise ValueError("Selection is invalid.")
+        if min_atoms is not None and len(atom_indices) < min_atoms:
+            raise ValueError((f"Selection {selection} does not contain enough atoms "
+                              f"({len(atom_indices)} < {min_atoms})."
+                              ))
+        return atom_indices
+
     def get_rmsd(self, selection: str = "name CA") -> NDArray:
         '''
         Get the RMSD of the atoms in the selection for each frame in the trajectory.
+        The reference structure is provided in the constructor.
 
         :param selection: str: The selection string to use to select the atoms.
         :return: np.ndarray: RMSD. Unit: Angstrom
         :rtype: np.ndarray
         '''
 
-        # get the atom indices from selection and check if it is valid
-        try:
-            atom_indices = self.ref.top.select(selection)
-        except:
-            raise ValueError("Selection is invalid.")
-        assert len(atom_indices) > 1, f"Selection does not contain enough atoms ({len(atom_indices)})."
-
-        rmsd = md.rmsd(self.traj, self.ref, atom_indices=atom_indices) * 10
+        sel = self._select_and_validate(selection)
+        rmsd = md.rmsd(self.traj, self.ref, atom_indices=sel) * 10
         return np.array(rmsd)
 
     def filter_by_rmsd(self, selection="name CA", rmsd_cutoff: float = 10.0) -> NDArray:
@@ -93,7 +110,8 @@ class FeatureSelection(object):
         rmsd = self.get_rmsd(selection)
 
         mask = (rmsd < rmsd_cutoff).nonzero()[0]
-        assert len(mask) > 0, f"No structures are below the RMSD cutoff of {rmsd_cutoff} Angstrom."
+        if len(mask) == 0:
+            raise ValueError(f"No structures are below the RMSD cutoff of {rmsd_cutoff} Angstrom.")
 
         self.traj = md.join([self.traj[i] for i in mask])
         self.pdb_name = [self.pdb_name[i] for i in mask]
@@ -101,20 +119,6 @@ class FeatureSelection(object):
         return rmsd[mask]
 
     # ===== Feature selection =====
-    
-    def _get_atom_index_from_selection(self, selection: str) -> NDArray:
-        '''
-        Get the atom indices from the selection string.
-
-        :param selection: str: The selection string.
-        :return: np.ndarray: The atom indices.
-        '''
-
-        try:
-            atom_index = self.traj.top.select(selection)
-        except:
-            raise ValueError("Selection is invalid.")
-        return atom_index
     
     def _get_atom_pairs(self, selection: str | tuple[str, str]) -> NDArray:
         '''
@@ -127,18 +131,14 @@ class FeatureSelection(object):
         from itertools import combinations, product
 
         if isinstance(selection, str):
-            atom_index = self._get_atom_index_from_selection(selection)
-            if len(atom_index) < 2:
-                raise ValueError(f"Selection '{selection}' does not contain enough atoms ({len(atom_index)}).")
+            atom_index = self._select_and_validate(selection, 2)
             atom_pairs = np.array(list(combinations(atom_index, 2)))
         elif isinstance(selection, tuple):
             if len(selection) != 2:
                 raise ValueError("Selection must be a tuple of two strings.")
             a, b = selection
-            idx_a = self._get_atom_index_from_selection(a)
-            idx_b = self._get_atom_index_from_selection(b)
-            if len(idx_a) == 0 or len(idx_b) == 0:
-                raise ValueError(f"Selection '{selection}' does not contain enough atoms.")
+            idx_a = self._select_and_validate(a)
+            idx_b = self._select_and_validate(b)
             atom_pairs = np.array(list(product(idx_a, idx_b)))
         else:
             raise ValueError("Selection must be a string or a tuple of two strings.")

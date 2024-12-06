@@ -2,17 +2,25 @@
 Container class for SPIB results.
 '''
 
+from __future__ import annotations
+
 import numpy as np
 import pickle
+from pathlib import Path
 from ..colvar import Colvar
 
-from typing import Union
 from numpy.typing import NDArray
 
 
 class SPIBResult():
 
     def __init__(self, prefix: str, postfix: str, n_traj: int, **kwargs):
+        '''
+        This object should be treated as read-only to the user. 
+        Not supposed to be constructed by the user. Use SPIBResult.from_file() instead.
+
+        The method SPIBProcess.run() will be responsible for creating this container class.
+        '''
 
         self._prefix = prefix
         self._postfix = postfix
@@ -58,16 +66,36 @@ class SPIBResult():
         self._representatives["z_mean"] = self._np_load("representative_z_mean")
 
     def _np_load(self, keyword: str, i_traj: int = None):
+        '''
+        Load a numpy file with the given keyword. Provide i_traj if that file is trajectory-specific.
+        '''
         if i_traj is None:
             return np.load(f"{self._prefix}_{keyword}{self._postfix}")
         else:
             return np.load(f"{self._prefix}_traj{i_traj}_{keyword}{self._postfix}")
 
     @classmethod
-    def from_file(cls, filename: str) -> "SPIBResult":
+    def from_file(cls, filename: str) -> SPIBResult:
+        '''
+        Load a SPIBResult object from a binary pickle file.
+
+        :param filename: The filename to load.
+        :type filename: str
+        :return: The SPIBResult object.
+        :rtype: SPIBResult
+        :raises FileNotFoundError: If the file does not exist.
+        '''
+        if not Path(filename).exists():
+            raise FileNotFoundError(f"File {filename} does not exist.")
         return pickle.load(open(filename, "rb"))
 
     def to_file(self, filename: str) -> None:
+        '''
+        Dump the object into a binary pickle file for future use.
+
+        :param filename: The filename to save.
+        :type filename: str
+        '''
         pickle.dump(self, open(filename, "wb"))
 
     @property
@@ -88,6 +116,7 @@ class SPIBResult():
     def n_input_labels(self) -> int:
         '''
         The number of initial states/input labels.
+        Typically this is 2 * n_traj.
         '''
         return self._n_input_labels
 
@@ -138,7 +167,7 @@ class SPIBResult():
         '''
         return X.map(self.project, insitu=False)
 
-    def get_latent_representation(self, traj_idx: Union[list[int], int] = None) -> NDArray:
+    def get_latent_representation(self, traj_idx: list[int] | int = None) -> NDArray:
         '''
         Return the latent representation of the trajectory.
         If no index is provides, return all trajectories.
@@ -155,6 +184,11 @@ class SPIBResult():
         '''
         Return the state label of the trajectory.
         If no index is provides, return all trajectories.
+
+        :param traj_idx: The index of the trajectory. If None, return all trajectories.
+        :type traj_idx: int, optional
+        :return: The state label as a number from 0 to n_states. shape: n_frames
+        :rtype: np.ndarray
         '''
 
         if traj_idx is not None:
@@ -166,8 +200,15 @@ class SPIBResult():
 
     def get_traj_label(self, traj_idx: int = None):
         '''
-        Return the trajectory label of the trajectory.
+        Return the trajectory label of the trajectory, 
+        i.e. the index of the trajectory each frame belongs to.
         If no index is provides, return all trajectories.
+        When a index is provided, the return value the same as [index] * nframes.
+
+        :param traj_idx: The index of the trajectory. If None, return all trajectories.
+        :type traj_idx: int, optional
+        :return: The trajectory label. shape: n_frames
+        :rtype: np.ndarray
         '''
 
         if traj_idx is not None:
@@ -178,6 +219,13 @@ class SPIBResult():
         return traj
 
     def get_probability_distribution(self, nbins=200) -> tuple[NDArray, NDArray, NDArray]:
+        '''
+        Get the probability distribution in the latent space.
+
+        :param nbins: The number of bins for the histogram. The format is the same with np.histogram2d.
+        :type nbins: int, (int, int), optional, default=200
+        :return: x, y, h
+        '''
 
         h, x, y = np.histogram2d(*self.get_latent_representation(), bins=nbins, density=True)
         return x, y, h.T    # what the hell is this transpose?
@@ -205,10 +253,11 @@ class SPIBResult():
     
     def project_state_label(self, X: NDArray):
         '''
-        Project a coordinate in the latent space to the most probable state.
+        Project an arbitary coordinate in the latent space to the most probable state.
+        NaN will be returned if the coordinate is outside the convex hull of the latent space.
 
         This algorithm interpolates a one-hot vector representation of state labels 
-        over the latent space.
+        over the latent space with a 2D Clough-Tocher interpolator as implemented in scipy.
 
         :param X: The coordinate, shape: 2 * npoints
         :type X: np.ndarray
@@ -233,13 +282,13 @@ class SPIBResult():
             
             return max_indices
         
-        if X.shape[1] != 2:
+        if X.shape[0] != 2:
             raise ValueError("The input shape is not compatible with the latent space. Shape of the input need to be N * 2.")
 
         if getattr(self, "_interpolator", None) is None:
-            x = self.get_latent_representation()
+            x = self.get_latent_representation().T
             y = np.eye(self.n_converged_states)[self.get_state_label()]
             self._interpolator = CloughTocher2DInterpolator(x, y)
         
-        onehot_y = self._interpolator(X)
+        onehot_y = self._interpolator(X.T)
         return nan_argmax(onehot_y)

@@ -18,12 +18,11 @@ from openmm.unit import Quantity, is_quantity
 
 class UnbiasedSimulation():
     '''
-    UnbiasedSimulation class for running MD
+    UnbiasedSimulation class for running MD.
 
     > import af2rave.simulation as af2sim
     > sim = af2sim.UnbiasedSimulation(<arguments>)
     > sim.run(steps)
-
     '''
 
     def __init__(self, pdb_file, **kwargs):

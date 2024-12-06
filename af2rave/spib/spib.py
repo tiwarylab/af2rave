@@ -17,6 +17,13 @@ class SPIBProcess(object):
 
     def __init__(self,
                  traj: str | list[str], **kwargs):
+        '''
+        Initialize an SPIB Process. Trajectories are the only input processed here.
+        Other training parameters should be provided in the run() method.
+
+        :param traj: The list of trajectory files to process.
+        :type traj: str | list[str]
+        '''
 
         self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         print(f"[af2rave.spib] Using device: {self._device}")
