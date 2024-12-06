@@ -6,7 +6,6 @@ Welcome to af2rave's documentation!
    :caption: Contents:
 
    readme
-   installation
    usage
    modules
    authors
