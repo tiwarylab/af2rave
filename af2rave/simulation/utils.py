@@ -74,7 +74,7 @@ class TopologyMap:
 
         return forward_map
 
-    def map(self, index: AtomIndexLike) -> AtomIndexLike:
+    def map_atom_index(self, index: AtomIndexLike) -> AtomIndexLike:
         '''
         Map atom index from input PDB to the output PDB file.
 
@@ -198,7 +198,7 @@ class SimulationBox:
 
         # initialize a mapping object
         self.top_map = TopologyMap(app.PDBFile(self._filename).topology, self.top)
-        self.map_atom_index = self.top_map.map
+        self.map_atom_index = self.top_map.map_atom_index
 
         return modeller.positions, modeller.topology
 
