@@ -162,12 +162,11 @@ class SimulationBox:
         bonded CYS. Meanwhile, CHARMM ffs do not have CYM and modeller will
         complain. We will remove the disulfide bond here.
         '''
-        disulfide_bonds = []
+        ds_bonds = []
         for bond in modeller.topology.bonds():
             if bond.atom1.name == 'SG' and bond.atom2.name == 'SG':
-                disulfide_bonds.append(bond)
-                print(f"Removed sulfide bond between {bond.atom1} and {bond.atom2}")
-        modeller.delete(disulfide_bonds)
+                ds_bonds.append(bond)
+        modeller.delete(ds_bonds)
 
         # add hydrogens
         self.pH = kwargs.get('pH', 7.0)

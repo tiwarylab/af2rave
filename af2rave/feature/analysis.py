@@ -27,7 +27,7 @@ class FeatureSelection(object):
         if not isinstance(pdb_name, list):
             p = Path(pdb_name)
             if p.is_dir():   # If a folder is provided, load all in the folder
-                self.pdb_name = natsorted(glob.glob(p / "*.pdb"))
+                self.pdb_name = natsorted(glob.glob(f"{pdb_name}/*.pdb"))
             else:
                 self.pdb_name = [pdb_name]
         else:
