@@ -10,10 +10,7 @@ by calling `af2rave amino`
 from __future__ import annotations
 
 from ..colvar import Colvar
-try:
-    import amino
-except ImportError:
-    from . import amino
+from . import amino
 
 class AMINO(object):
 
