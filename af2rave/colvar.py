@@ -134,6 +134,22 @@ class Colvar(object):
             else:
                 return None
         return arg_arr
+    
+    def _get_index(self, key: str) -> int:
+        '''
+        Get the index of the key in the header.
+        This function handles exceptions where the key does not exist.
+
+        :param key: The key to search for.
+        :type key: str
+        :return: The index of the key.
+        :rtype: int
+        :raises KeyError: If the key does not exist.
+        '''
+        try:
+            return self._header.index(key)
+        except ValueError:
+            raise KeyError(f"{key} does not exist.")
 
     def tappend(self, data: Colvar | str, stride: int = None) -> Colvar:
         '''
@@ -205,7 +221,7 @@ class Colvar(object):
         new_colvar = Colvar()
         new_colvar._time = self._time
 
-        index = [self._header.index(i) for i in columns]
+        index = [self._get_index(i) for i in columns]
         new_colvar._header = columns
         new_colvar._data = self._data[index]
 
@@ -264,10 +280,7 @@ class Colvar(object):
         return key in self._header
 
     def __getitem__(self, key):
-        if key in self._header:
-            return self._data[self._header.index(key)]
-        else:
-            raise KeyError(f"{key} does not exist.")
+        return self._data[self._get_index(key)]
 
     def __setitem__(self, key, value) -> None:
         # first check if we are empty
@@ -284,9 +297,6 @@ class Colvar(object):
             self._data[self._header.index(key)] = value
 
     def __delitem__(self, key) -> None:
-        if key in self._header:
-            idx = self._header.index(key)
-            self._header.pop(idx)
-            self._data = np.delete(self._data, idx, axis=0)
-        else:
-            raise KeyError(f"{key} does not exist.")
+        idx = self._get_index(key)
+        self._header.pop(idx)
+        self._data = np.delete(self._data, idx, axis=0)
