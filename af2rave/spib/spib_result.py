@@ -126,6 +126,43 @@ class SPIBResult():
         The number of remaining converged states.
         '''
         return np.sum(self._converged_states)
+    
+    @property
+    def weight(self) -> NDArray:
+        '''
+        The weight of the linear transformation. This weight is applied to the normalized input data for understanding the projection.
+        '''
+        return self._z_mean_encoder["weight"]
+    
+    @property
+    def bias(self) -> NDArray: 
+        '''
+        The bias of the linear transformation. This bias is applied to the normalized input data for understanding the projection.
+        '''
+        return self._z_mean_encoder["bias"].reshape(-1, 1)
+    
+    @property
+    def apparent_weight(self) -> NDArray:
+        '''
+        The apparent temperature of the model. This is the weight when directly applied to the CVs.
+        Shape: 2 x n_input_dims
+
+        z = weight *  (X - b) / k + bias
+          = (weight / k) * X + (bias - weight * b / k)
+
+        '''
+        return self.weight / self._k.reshape(1, -1)
+    
+    @property
+    def apparent_bias(self) -> NDArray:
+        '''
+        The apparent bias of the model. This is the bias when directly applied to the CVs.
+
+        z = weight *  (X - b) / k + bias
+          = (weight / k) * X + (bias - weight * b / k)
+          = apparent_weight * X + (bias - apparent_weight * b)
+        '''
+        return self.bias - np.dot(self.apparent_weight, self._b.reshape(-1, 1))
 
     def _get_converged_states(self) -> NDArray:
         '''
@@ -148,13 +185,7 @@ class SPIBResult():
         :type X: np.ndarray
         '''
 
-        # shape of X: n_input_dims x n_frames
-        # shape of weight: 2 x n_input_dims
-        # shape of bias: 2
-
-        p = (X - self._b.reshape(-1, 1)) / self._k.reshape(-1, 1)
-        p = np.dot(self._z_mean_encoder["weight"], p) + self._z_mean_encoder["bias"].reshape(-1, 1)
-        return p
+        return self.apparent_weight @ X + self.apparent_bias
 
     def project_colvar(self, X: Colvar) -> Colvar:
         '''
