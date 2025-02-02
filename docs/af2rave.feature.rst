@@ -1,37 +1,15 @@
-af2rave.feature package
+af2rave.feature module
 =======================
-
-Submodules
-----------
-
-af2rave.feature.analysis module
--------------------------------
 
 .. automodule:: af2rave.feature.analysis
    :members:
    :undoc-members:
    :show-inheritance:
 
-af2rave.feature.feature module
+af2rave.feature.utils
 ------------------------------
 
-.. automodule:: af2rave.feature.feature
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-af2rave.feature.trajectory module
----------------------------------
-
-.. automodule:: af2rave.feature.trajectory
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: af2rave.feature
+.. automodule:: af2rave.feature.utils
    :members:
    :undoc-members:
    :show-inheritance:

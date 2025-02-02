@@ -21,6 +21,9 @@ classifiers = [
 ]
 license = {text = "MIT license"}
 requires-python = ">= 3.10"
+dependencies = [
+  "natsort"
+]
 
 [project.optional-dependencies]
 dev = [
@@ -34,13 +37,9 @@ dev = [
 af2rave = "af2rave.cli:app"
 
 [project.urls]
-
 bugs = "https://github.com/tiwarylab/af2rave/issues"
 changelog = "https://github.com/tiwarylab/af2rave/blob/master/changelog.md"
 homepage = "https://github.com/tiwarylab/af2rave"
-
-#[tool.setuptools]
-#package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]        
