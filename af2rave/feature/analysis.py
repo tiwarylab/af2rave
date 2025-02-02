@@ -5,8 +5,8 @@ import numpy as np
 import mdtraj as md
 from pathlib import Path
 
-from .feature import Feature
 from numpy.typing import NDArray
+from sklearn.decomposition import PCA
 
 class FeatureSelection(object):
 
@@ -27,30 +27,104 @@ class FeatureSelection(object):
         if not isinstance(pdb_name, list):
             p = Path(pdb_name)
             if p.is_dir():   # If a folder is provided, load all in the folder
-                self.pdb_name = natsorted(glob.glob(f"{pdb_name}/*.pdb"))
+                self._pdb_name = natsorted(glob.glob(f"{pdb_name}/*.pdb"))
             else:
-                self.pdb_name = [pdb_name]
+                self._pdb_name = [pdb_name]
         else:
-            self.pdb_name = pdb_name
+            self._pdb_name = pdb_name
 
         if ref_pdb is None:
-            self.ref_pdb = self.pdb_name[0]
+            self._ref_pdb = self.pdb_name[0]
         else:
-            self.ref_pdb = ref_pdb
-        self.ref = md.load(self.ref_pdb)
+            self._ref_pdb = ref_pdb
+        self._ref = md.load(self.ref_pdb)
+        self._top = self._ref.topology
 
         # MDtraj objects
-        self.traj = md.load(self.pdb_name)
+        self._traj = md.load(self.pdb_name)
 
         # these two will be populated by the rank_features method
-        self.names = []
-        self.features = {}
+        self._features = {}
+        self._atom_pairs = {}
 
+    # ===== Properties =====
     @property
-    def feature_array(self) -> NDArray:
-        return np.array([self.features[fn].ts for fn in self.names]).T
+    def traj(self) -> md.Trajectory:
+        '''
+        Return a MDTraj object of all structures.
+
+        :return: The MDTraj object.
+        :rtype: md.Trajectory
+        '''
+        return self._traj
+    
+    @property
+    def pdb_name(self) -> list[str]:
+        '''
+        Return the list of pdb names.
+
+        :return: The list of pdb names.
+        :rtype: list[str]
+        '''
+        return self._pdb_name
+    
+    @property
+    def ref_pdb(self) -> str:
+        '''
+        Return the reference pdb name.
+
+        :return: The reference pdb name.
+        :rtype: str
+        '''
+        return self._ref_pdb
+    
+    @property
+    def top(self) -> md.Topology:
+        '''
+        Return the topology of the reference structure.
+
+        :return: The topology.
+        :rtype: md.Topology
+        '''
+        return self._top
+    
+    @property
+    def features(self) -> dict[str, NDArray[np.float_]]:
+        '''
+        Return the features dictionary. The key is the feature name and the value is the feature array.
+
+        :return: The features.
+        :rtype: dict[str, Feature]
+        '''
+        return self._features
+    
+    @property
+    def atom_pairs(self) -> dict[str, NDArray[np.int_]]:
+        '''
+        Return the atom pairs dictionary. The key is the feature name and the value is the atom pairs.
+
+        :return: The atom pairs.
+        :rtype: dict[str, np.ndarray]
+        '''
+        return self._atom_pairs
+    
+    @property
+    def feature_array(self) -> NDArray[np.float_]:
+        '''
+        Return the feature array.
+
+        :return: The feature array.
+        :rtype: np.ndarray
+        '''
+        return np.array([v for v in self.features.values()]).T
 
     def __len__(self) -> int:
+        '''
+        Return the number of structures in the trajectory.
+
+        :return: The number of structures.
+        :rtype: int
+        '''
         return len(self.pdb_name)
 
     # ===== Preprocessing =====
@@ -69,7 +143,7 @@ class FeatureSelection(object):
         '''
 
         try:
-            atom_indices = self.ref.top.select(selection)
+            atom_indices = self._top.select(selection)
         except:
             raise ValueError("Selection is invalid.")
         if min_atoms is not None and len(atom_indices) < min_atoms:
@@ -78,7 +152,7 @@ class FeatureSelection(object):
                               ))
         return atom_indices
 
-    def get_rmsd(self, selection: str = "name CA") -> NDArray:
+    def get_rmsd(self, selection: str = "name CA") -> dict[str, float]:
         '''
         Get the RMSD of the atoms in the selection for each frame in the trajectory.
         The reference structure is provided in the constructor.
@@ -88,252 +162,276 @@ class FeatureSelection(object):
         :rtype: np.ndarray
         '''
 
-        sel = self._select_and_validate(selection)
-        rmsd = md.rmsd(self.traj, self.ref, atom_indices=sel) * 10
-        return np.array(rmsd)
+        sel = self._select_and_validate(selection, 2)
+        rmsd = md.rmsd(self.traj, self._ref, atom_indices=sel) * 10
+        return {pdb: r for pdb, r in zip(self.pdb_name, rmsd)}
 
-    def filter_by_rmsd(self, selection="name CA", rmsd_cutoff: float = 10.0) -> NDArray:
+    # ===== Filtering =====
+
+    def rmsd_filter(self, selection="name CA", rmsd_cutoff: float = 10.0) -> list[str]:
         '''
         Filter structures with a RMSD cutoff.
 
-        Remove structures that are too irrelavant by dropping those with RMSD
-        larger than a cutoff (in Angstrom). This modifies the trajectory in place.
+        Filter structures that are too irrelavant by dropping those with RMSD
+        larger than a cutoff (in Angstrom). This returns a list of pdb names.
+        The filter can be subsequently applied by the apply_filter method.
 
         :param rmsd_cutoff: The RMSD cutoff value. Default: 10.0 Angstrom
         :type rmsd_cutoff: float
         :param selection: The selection string to the atoms to calculate the RMSD. Default: "name CA"
         :type selection: str
-        :return: The RMSD of the atoms in the selection for each frame in the trajectory.
-        :rtype: np.ndarray
+        :return: The pdb names of the selected structures
+        :rtype: list[str]
         '''
 
         rmsd = self.get_rmsd(selection)
-
-        mask = (rmsd < rmsd_cutoff).nonzero()[0]
+        mask = [k for k, v in rmsd.items() if v <= rmsd_cutoff]
         if len(mask) == 0:
             raise ValueError(f"No structures are below the RMSD cutoff of {rmsd_cutoff} Angstrom.")
+        return mask
+    
+    def peptide_bond_filter(self, lower_bound = 1.0, upper_bound = 2.0) -> list[str]:
+        '''
+        Filter structures with a peptide bond cutoff.
 
-        self.traj = md.join([self.traj[i] for i in mask])
-        self.pdb_name = [self.pdb_name[i] for i in mask]
+        Some AlphaFold2 generated structures have unrealistic backbone structures, 
+        often characterized with too long or too short peptide bonds. This method
+        filters out structures with peptide bonds that are too long or too short.
+        '''
+        raise NotImplementedError("This method is not implemented yet. Email Akash.")
+    
+    def apply_filter(self, mask: list[str]) -> None:
+        '''
+        Apply a mask to the trajectory.
 
-        return rmsd[mask]
+        :param mask: The mask to apply.
+        :type mask: list[str]
+        :raises ValueError: If the mask is invalid.
+        '''
+
+        # Check if the mask is valid
+        exist = [m in self.pdb_name for m in mask]
+        if not all(exist):
+            non_exist = [m for m, e in zip(mask, exist) if not e]
+            raise ValueError(f"Invalid mask. Some structures do not exist: {non_exist}")
+
+        # Apply the mask
+        self._pdb_name = mask
+        idx = [self.pdb_name.index(m) for m in mask]
+        self._traj = md.join([self._traj[i] for i in idx])
 
     # ===== Feature selection =====
-    
-    def _get_atom_pairs(self, selection: str | tuple[str, str]) -> NDArray:
-        '''
+    def _get_atom_pairs(self, selection: str | tuple[str, str]) -> NDArray[np.int_]:
+        """
         Get the atom pairs from the selection string.
 
-        :param selection: str: The selection string.
-        :return: np.ndarray: The atom pairs.
-        '''
+        - If `selection` is a string, it returns all pairs of atoms in the selection.
+        - If `selection` is a tuple of two strings, it returns all pairs of atoms between the two selections.
+
+        :param selection: A string representing a single selection or a tuple of two selection strings.
+        :return: A NumPy array of atom pairs.
+        :raises ValueError: If `selection` is not a string or a tuple of two strings.
+        """
 
         from itertools import combinations, product
 
         if isinstance(selection, str):
-            atom_index = self._select_and_validate(selection, 2)
-            atom_pairs = np.array(list(combinations(atom_index, 2)))
-        elif isinstance(selection, tuple):
-            if len(selection) != 2:
-                raise ValueError("Selection must be a tuple of two strings.")
-            a, b = selection
-            idx_a = self._select_and_validate(a)
-            idx_b = self._select_and_validate(b)
-            atom_pairs = np.array(list(product(idx_a, idx_b)))
-        else:
-            raise ValueError("Selection must be a string or a tuple of two strings.")
-        return atom_pairs
+            atom_index = self._select_and_validate(selection, min_atoms=2)
+            return np.array(list(combinations(atom_index, 2)), dtype=np.int_)
+
+        if isinstance(selection, tuple) and len(selection) == 2:
+            idx_a = self._select_and_validate(selection[0])
+            idx_b = self._select_and_validate(selection[1])
+            return np.array(list(product(idx_a, idx_b)), dtype=np.int_)
+
+        raise ValueError("Selection must be a string or a tuple of two strings.")
 
     def rank_feature(self,
-                     selection: str | tuple[str] | list[str | tuple[str]] = "name CA"
-                     ) -> tuple[dict[Feature], list[str], NDArray]:
-        '''
-        Rank the features by the coefficient of variation.
+                     selection: str | tuple[str, str] | list[str | tuple[str, str]] = "name CA"
+                     ) -> tuple[list[str], NDArray[np.float_]]:
+        """
+        Rank the features by the coefficient of variation (CV).
 
-        :param selection: str: The selection string to use to select the atoms.
-        :return features: np.ndarray, shape=(nframes, nfeatures). The feature vector. Unit: Angstrom
-        :return names: list[str], The list of feature names.
-        :return cv: list[float], list of coefficient of variance
-        '''
+        `selection` can be:
+        - A string: Computes all pairs of atoms within the selection.
+        - A tuple of two strings: Computes all pairs of atoms between the two selections.
+        - A list of strings or tuples: Computes atom pairs for each selection in the list.
+
+        :param selection: The selection string(s) used to determine atom pairs.
+        :return names: A list of feature names.
+        :return cv: A NumPy array containing the coefficient of variation values.
+        :raises ValueError: If `selection` is not a valid type.
+        """
+
+        from .utils import representation
 
         if isinstance(selection, (str, tuple)):
             atom_pairs = self._get_atom_pairs(selection)
         elif isinstance(selection, list):
+            # Shape: (n_pairs, 2)
             atom_pairs = np.vstack([self._get_atom_pairs(s) for s in selection])
         else:
             raise ValueError("Selection must be a string, a tuple of two strings, or a list of them.")
 
+        # Compute pairwise distances in nanometers, convert to Angstroms
+        # Shape: (n_structures, n_pairs)
         pw_dist = md.compute_distances(self.traj, atom_pairs, periodic=False) * 10
 
-        names = ["" for _ in atom_pairs]
-        for i, ap in enumerate(atom_pairs):
-            f = Feature(ap, self.ref.top, pw_dist[:, i])
-            self.features[f.name] = f
-            names[i] = f.name
-        self.names += names
+        # Generate feature names
+        names = [f"{representation(self._top, i)}-{representation(self._top, j)}" for i, j in atom_pairs]
 
-        # sort the features by coefficient of variation
-        cv = np.std(pw_dist, axis=0) / np.mean(pw_dist, axis=0)
+        # Store features
+        for name, pwd, ap in zip(names, pw_dist.T, atom_pairs):
+            self._features[name] = pwd
+            self._atom_pairs[name] = ap
+
+        # Compute coefficient of variation (CV)
+        mean_dist = np.mean(pw_dist, axis=0)
+        std_dist = np.std(pw_dist, axis=0)
+        
+        with np.errstate(divide='ignore', invalid='ignore'):  # Handle division errors safely
+            cv = np.where(mean_dist != 0, std_dist / mean_dist, np.nan)
+
+        # Rank features by CV in descending order
         rank = np.argsort(cv)[::-1]
-        names = [names[i] for i in rank]
+        names_sorted = [names[i] for i in rank]
 
-        return names, cv[rank]
-
-    # ===== AMINO interface =====
-
-    def amino(self,
-              feature_name: list[str],
-              max_outputs: int = 20,
-              bins: int = 50,
-              kde_bandwidth: float = 0.02,
-              **kwargs: dict
-              ) -> list[str]:
-        '''
-        Reduce the number of features using AMINO.
-
-        Please see and cite https://doi.org/10.1039/C9ME00115H for a description of the method.
-
-        :param n_features: int: The number features to work with. Picked using the highest coefficient of variation.
-        :param max_outputs: int: The maximum number of OPs to output.
-        :param bins: int: The number of bins for the histogram.
-        :param kde_bandwidth: float: The bandwidth for the KDE.
-        :param kwargs: dict: Additional keyword arguments to pass to the AMINO functions.
-        :return: list[str]: The names of the selected features and the corresponding features.
-        '''
-
-        from .. import amino
-
-        # This is a pretty weird feature in AMINO. The original code distinguish
-        # the features by their names (a string). So the only way we can incorporate
-        # AMINO in is to work around a string representation
-        ops = [amino.OrderParameter(n, self.features[n].ts) for n in feature_name]
-        selected_ops = amino.find_ops(ops,
-                                max_outputs=max_outputs,
-                                bins=bins,
-                                bandwidth=kde_bandwidth,
-                                verbose=False,
-                                **kwargs)
-        selected_name = [op.name for op in selected_ops]
-        return selected_name
+        return names_sorted, cv[rank]
 
     # ===== Format conversion =====
-
     def get_chimera_plotscript(self,
-                               feature_name: list[str] = None,
-                               add_header: bool = True
-                               ) -> str:
-        '''
+                            feature_name: list[str],
+                            add_header: bool = True
+                            ) -> str:
+        """
         Generate a Chimera plotscript to visualize the selected features.
 
-        :param labels: list[str]: The names of the features to visualize.
-        :param add_header: bool: Add the "open xxx.pdb" header to the plotscript.
-        :return: str: The Chimera plotscript.
-        '''
+        :param feature_name: A list of feature names to visualize.
+        :param add_header: Whether to add the "open xxx.pdb" header to the plotscript.
+        :return: The Chimera plotscript as a string.
+        :raises ValueError: If `feature_name` is None or contains invalid names.
+        """
 
-        plotscript = ""
+        from .utils import chimera_representation, resid
+
+        plotscript_lines = set()
+
         for fn in feature_name:
-            plotscript += self.features[fn].get_plot_script()
+            if fn not in self._atom_pairs:
+                raise ValueError(f"Feature name '{fn}' not found in stored atom pairs.")
+            
+            i, j = self._atom_pairs[fn]
+            atom_i = chimera_representation(self.top, i)
+            atom_j = chimera_representation(self.top, j)
 
-        # reduce redudancy
-        plotscript = list(set(plotscript.strip().split("\n")))
-        plotscript = "\n".join(plotscript) + "\n"
+            plotscript_lines.add(f"distance {atom_i} {atom_j}")
+            
+            if "CA" not in atom_i:
+                plotscript_lines.add(f"show :{resid(self.top, i)} a")
+            if "CA" not in atom_j:
+                plotscript_lines.add(f"show :{resid(self.top, j)} a")
 
-        # add header
+        plotscript = "\n".join(sorted(plotscript_lines)) + "\n"  # Sorting ensures deterministic output
+
         if add_header:
-            plotscript = f"open {self.ref_pdb}\n" + plotscript
+            plotscript = f"open {self.ref_pdb}\n{plotscript}"
 
         return plotscript
-
-    def get_index(self, feature_name: list[str]) -> list[set[int]]:
-        '''
-        Get the atom indices of features by their names.
-        '''
-
-        try:
-            index = [self.features[fn].ap for fn in feature_name]
-        except KeyError as e:
-            raise ValueError(f"Feature {e} does not exist.") from e
-
-        return index
 
     # ===== Clustering =====
 
     def regular_space_clustering(self,
-                                 feature_name: list[str],
-                                 min_dist: float,
-                                 max_centers: int = 100,
-                                 batch_size: int = 100,
-                                 randomseed: int = 0) -> tuple[np.ndarray, np.ndarray]:
-        '''
+                                feature_name: list[str],
+                                min_dist: float,
+                                max_centers: int = 100,
+                                batch_size: int = 100,
+                                randomseed: int = 0) -> tuple[NDArray[np.float_], NDArray[np.int_]]:
+        """
         Performs regular space clustering on the selected dimensions of features.
 
-        :param n_features: int: The number of features to use for clustering.
-        :param min_dist: float: The minimum distance between cluster centers.
-        :param max_centers: int: The maximum number of cluster centers.
-        :param batch_size: int: The number of points to process in each batch.
-        :param randomseed: int: The random seed to use for the permutation.
-        :return center: np.ndarray: The cluster center coordinates.
-        :return center_id: np.ndarray: The indices of the cluster centers.
-        '''
+        :param feature_name: List of feature names to use for clustering.
+        :param min_dist: Minimum distance between cluster centers.
+        :param max_centers: Maximum number of cluster centers.
+        :param batch_size: Number of points to process in each batch.
+        :param randomseed: Random seed for the permutation.
+        :return: A tuple containing:
+            - center (np.ndarray): Cluster center coordinates.
+            - center_id (np.ndarray): Indices of the cluster centers.
+        :raises ValueError: If `max_centers` is exceeded.
+        """
 
-        z = np.array([self.features[fn].ts for fn in feature_name]).T
-        npoints = z.shape[0]
+        if not feature_name:
+            raise ValueError("Feature list cannot be empty.")
 
-        # Reshuffle the data with a random permutation, but keep the first element/reference fixed
-        if self.ref_pdb in self.pdb_name:
-            idx = self.pdb_name.index(self.ref_pdb)
-        else: 
-            idx = 0
-        p = np.random.RandomState(seed=randomseed).permutation(npoints)
-        lookup = (np.arange(npoints) + np.where(p == idx)[0][0]) % npoints
-        p = p[lookup]
-        data = z[p]
+        # Extract feature time series and transpose to shape (npoints, nfeatures)
+        z = np.array([self._features[fn] for fn in feature_name], dtype=np.float_).T
+        npoints, ndim = z.shape
 
-        # The first element is always a cluster center
-        center_id = np.full(max_centers, -1)
-        center_id[0] = p[0]
+        # Determine the reference index
+        idx = self.pdb_name.index(self.ref_pdb) if self.ref_pdb in self.pdb_name else 0
 
-        i = 1
+        # Generate a random permutation while ensuring the reference index remains fixed
+        rng = np.random.default_rng(seed=randomseed)
+        perm = rng.permutation(npoints)
+        lookup = (np.arange(npoints) + np.where(perm == idx)[0][0]) % npoints
+        perm = perm[lookup]
+        data = z[perm]
+
+        # Initialize cluster centers
+        center_id = np.full(max_centers, -1, dtype=np.int_)
+        center_id[0] = perm[0]
         ncenter = 1
-        ndim = data.shape[1]
+        i = 1
+
         while i < npoints:
-
             x_active = data[i:i + batch_size]
+            current_centers = data[center_id[center_id != -1]]
 
-            # All indices of points that are at least min_dist away from all cluster centers
-            center_list = data[center_id[center_id != -1]]
-            distances = np.linalg.norm(x_active[:, np.newaxis, :] - center_list[np.newaxis, :, :], axis=2) / np.sqrt(ndim)
-            indice = np.nonzero(np.all((distances > min_dist).reshape(ncenter, -1), axis=0))[0]
+            # Compute Euclidean distances normalized by sqrt(ndim)
+            distances = np.linalg.norm(x_active[:, np.newaxis, :] - current_centers[np.newaxis, :, :], axis=2) / np.sqrt(ndim)
 
-            if len(indice) > 0:
-                # the first element will be added as cluster center
-                center_id[ncenter] = p[i + indice[0]]
+            # Find indices of points that are at least `min_dist` away from all cluster centers
+            valid_indices = np.nonzero(np.all(distances > min_dist, axis=1))[0]
+
+            if valid_indices.size > 0:
+                center_id[ncenter] = perm[i + valid_indices[0]]
                 ncenter += 1
-                i += indice[0] + 1
+                i += valid_indices[0] + 1
             else:
                 i += batch_size
+
             if ncenter >= max_centers:
-                raise ValueError(f"{i}/{npoints} clustered. \
-                                 Exceeded the maximum number of cluster centers {max_centers}. \
-                                 Please increase min_dist.")
+                raise ValueError(f"{i}/{npoints} clustered. "
+                                f"Exceeded the maximum number of cluster centers ({max_centers}). "
+                                "Consider increasing `min_dist`.")
 
         center_id = center_id[center_id != -1]
 
-        return center_list, center_id
+        return center_id
 
-    def pca(self, n_components: int = 2, **kwargs):
-        '''
-        Perform PCA on the selected features.
 
-        :param n_components: The number of output principle components
-        :type n_components: int
+    def pca(self, n_components: int = 2, **kwargs) -> tuple[PCA, NDArray[np.float_]]:
+        """
+        Perform Principal Component Analysis (PCA) on the selected features.
+
+        :param n_components: The number of principal components to compute.
         :param kwargs: Additional keyword arguments to pass to the PCA constructor.
-        :return pca, z: The PCA object and the transformed data.
-        '''
+        :return: A tuple containing the fitted PCA object and the transformed data.
+        :raises ValueError: If no features are available for PCA.
+        """
 
-        from sklearn.decomposition import PCA
+        if not self.features:
+            raise ValueError("No features available for PCA.")
 
-        z = self.feature_array
+        # Extract time series data from features
+        z = np.array([self._features[fn] for fn in self.features], dtype=np.float_).T
+
+        # Ensure there are enough features to compute the requested components
+        if z.shape[1] < n_components:
+            raise ValueError(f"Number of components ({n_components}) cannot exceed available features ({z.shape[1]}).")
+
+        # Perform PCA
         pca = PCA(n_components=n_components, **kwargs)
-        pca.fit(z)
-        return pca, pca.transform(z)
+        transformed_data = pca.fit_transform(z)
+
+        return pca, transformed_data
