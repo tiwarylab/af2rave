@@ -18,7 +18,6 @@ build:
   jobs:
     create_environment:
       - echo "Preparing environment"
-    install:
       - pip install sphinx_rtd_theme
     build:
       html:
