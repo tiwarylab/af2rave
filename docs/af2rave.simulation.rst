@@ -1,4 +1,4 @@
-af2rave.simulation package
+af2rave.simulation module
 ==========================
 
 Submodules
@@ -28,10 +28,3 @@ af2rave.simulation.utils module
    :undoc-members:
    :show-inheritance:
 
-Module contents
----------------
-
-.. automodule:: af2rave.simulation
-   :members:
-   :undoc-members:
-   :show-inheritance:

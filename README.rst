@@ -1,15 +1,16 @@
-af2rave
+af2rave package
 ******************
 
-![image](https://img.shields.io/pypi/v/af2rave.svg)
-![image](https://img.shields.io/travis/k9cdt/af2rave.svg)
-![image](https://readthedocs.org/projects/af2rave/badge/?version=latest)
+.. image:: https://readthedocs.org/projects/af2rave/badge/?version=latest
+    :target: https://af2rave.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
-AlphaFold2-RAVE package generates boltzman-ranked non-native conformations for proteins
+AlphaFold2-RAVE package generates boltzman-ranked non-native conformations for proteins.
 
 
 * Free software: MIT license
 * Documentation: https://af2rave.readthedocs.io
+
 
 Installation
 ----------------
@@ -55,6 +56,8 @@ SPIB:
 AMINO: 
 
 * Pavan Ravindra, Zachary Smith and Pratyush Tiwary, Automatic mutual information noise omission (AMINO): generating order parameters for molecular systems, *Mol. Syst. Des. Eng.*, 2020,5, 339-348, https://doi.org/10.1039/C9ME00115H
+
+
 
 Credits
 -------

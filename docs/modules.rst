@@ -1,5 +1,5 @@
-af2rave
-=======
+Package Contents
+==================
 
 .. toctree::
    :maxdepth: 4

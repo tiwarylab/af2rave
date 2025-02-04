@@ -1,4 +1,4 @@
-af2rave.spib package
+af2rave.spib module
 ====================
 
 Submodules
@@ -20,18 +20,4 @@ af2rave.spib.spib\_result module
    :undoc-members:
    :show-inheritance:
 
-af2rave.spib.wrapper module
----------------------------
 
-.. automodule:: af2rave.spib.wrapper
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: af2rave.spib
-   :members:
-   :undoc-members:
-   :show-inheritance:

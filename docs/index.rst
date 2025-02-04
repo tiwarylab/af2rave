@@ -1,5 +1,5 @@
-Welcome to af2rave's documentation!
-*********
+af2rave Documentation
+*********************************************
 
 .. toctree::
    :maxdepth: 2
