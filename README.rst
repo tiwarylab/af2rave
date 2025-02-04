@@ -1,11 +1,11 @@
 af2rave
 ******************
 
-![image](https://img.shields.io/pypi/v/af2rave.svg)
-![image](https://img.shields.io/travis/k9cdt/af2rave.svg)
-![image](https://readthedocs.org/projects/af2rave/badge/?version=latest)
+.. image:: https://readthedocs.org/projects/af2rave/badge/?version=latest
+    :target: https://af2rave.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
-AlphaFold2-RAVE package generates boltzman-ranked non-native conformations for proteins
+AlphaFold2-RAVE package generates boltzman-ranked non-native conformations for proteins.
 
 
 * Free software: MIT license

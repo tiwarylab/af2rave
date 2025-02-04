@@ -1,3 +1,0 @@
-pip>23.0.0
-sphinx
-sphinx_rtd_theme

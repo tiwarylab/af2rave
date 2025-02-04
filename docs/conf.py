@@ -47,7 +47,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'af2rave'
-copyright = "2024, Da Teng"
+copyright = "2024, Tiwary Group"
 author = "Da Teng"
 
 # The version info for the project you're documenting, acts as replacement
@@ -157,6 +157,4 @@ texinfo_documents = [
      'One line description of project.',
      'Miscellaneous'),
 ]
-
-
 
