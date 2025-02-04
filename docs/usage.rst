@@ -2,6 +2,7 @@
 Usage
 =====
 
-To use af2rave in a project::
+.. toctree::
+   :maxdepth: 4
 
-    import af2rave
+   usage.feature

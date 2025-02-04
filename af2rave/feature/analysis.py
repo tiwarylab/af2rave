@@ -1,4 +1,7 @@
-'''Feature analysis module for AF2RAVE'''
+'''
+Feature analysis module for af2rave.
+'''
+
 import glob
 from natsort import natsorted
 import numpy as np
@@ -8,44 +11,39 @@ from pathlib import Path
 from numpy.typing import NDArray
 from sklearn.decomposition import PCA
 
-class FeatureSelection(object):
+class FeatureSelection:
+    """
+    Reads an ensemble of PDB files and performs feature selection.
 
-    def __init__(self,
-                 pdb_name: str | list[str],
-                 ref_pdb: str = None) -> None:
-        '''
-        The object reads an ensemble of PDB files and performs feature selection.
+    :param pdb_name: The name(s) of the PDB file from reduced MSA.
+    :param ref_pdb: The name of the reference structure. If none is provided,
+                    the first frame of the input PDB file will be used as the reference.
+    """
 
-        :param pdb_name: The name(s) of the PDB file from reduced MSA.
-        :type pdb_name: list[str]
-        :param ref_pdb: The name of the reference structure.
-            If none is provided, the first frame of the input PDB file will be used as the reference.
-        :type ref_pdb: str
-        :param align_by: str: The selection string used to align the trajectories.
-        '''
-
-        if not isinstance(pdb_name, list):
+    def __init__(self, pdb_name: str | list[str], ref_pdb: str | None = None) -> None:
+        if isinstance(pdb_name, str):
             p = Path(pdb_name)
-            if p.is_dir():   # If a folder is provided, load all in the folder
-                self._pdb_name = natsorted(glob.glob(f"{pdb_name}/*.pdb"))
-            else:
-                self._pdb_name = [pdb_name]
+            self._pdb_name = (
+                natsorted(glob.glob(f"{p}/*.pdb")) if p.is_dir() else [pdb_name]
+            )
         else:
             self._pdb_name = pdb_name
 
-        if ref_pdb is None:
-            self._ref_pdb = self.pdb_name[0]
-        else:
-            self._ref_pdb = ref_pdb
-        self._ref = md.load(self.ref_pdb)
+        if not self._pdb_name:
+            raise ValueError("No valid PDB files found.")
+
+        self._ref_pdb = ref_pdb if ref_pdb else self._pdb_name[0]
+
+        # Load reference structure
+        self._ref = md.load(self._ref_pdb)
         self._top = self._ref.topology
 
-        # MDtraj objects
-        self._traj = md.load(self.pdb_name)
+        # Load trajectory
+        self._traj = md.load(self._pdb_name)
 
-        # these two will be populated by the rank_features method
-        self._features = {}
-        self._atom_pairs = {}
+        # Feature storage
+        self._features: dict = {}
+        self._atom_pairs: dict = {}
 
     # ===== Properties =====
     @property
@@ -94,7 +92,7 @@ class FeatureSelection(object):
         Return the features dictionary. The key is the feature name and the value is the feature array.
 
         :return: The features.
-        :rtype: dict[str, Feature]
+        :rtype: dict[str, np.ndarray[float]]
         '''
         return self._features
     
@@ -104,19 +102,19 @@ class FeatureSelection(object):
         Return the atom pairs dictionary. The key is the feature name and the value is the atom pairs.
 
         :return: The atom pairs.
-        :rtype: dict[str, np.ndarray]
+        :rtype: dict[str, np.ndarray[int]]
         '''
         return self._atom_pairs
     
     @property
     def feature_array(self) -> NDArray[np.float_]:
         '''
-        Return the feature array.
+        Return the feature array, with each feature stacked column-wise.
 
         :return: The feature array.
-        :rtype: np.ndarray
+        :rtype: np.ndarray[float]
         '''
-        return np.array([v for v in self.features.values()]).T
+        return np.column_stack(list(self.features.values())) if self.features else np.empty((0, 0))
 
     def __len__(self) -> int:
         '''
@@ -129,27 +127,28 @@ class FeatureSelection(object):
 
     # ===== Preprocessing =====
 
-    def _select_and_validate(self, selection: str, min_atoms: int = 1) -> NDArray:
-        '''
-        Select atoms from the trajectory and validate the selection 
-        to have at least min_atoms atoms.
+    def _select_and_validate(self, selection: str, min_atoms: int | None = 1) -> NDArray[np.int_]:
+        """
+        Select atoms from the trajectory and validate the selection
+        to ensure it contains at least `min_atoms` atoms.
 
-        :param selection: str: The selection string.
-        :param min_atoms: int: The minimum number of atoms required. Default: 1.
-            set to None to disable the check.
-        :return: np.ndarray: The atom indices.
-        :rtype: np.ndarray
+        :param selection: The selection string.
+        :type selection: str
+        :param min_atoms: The minimum number of atoms required. Default: 1. Set to `None` to disable the check.
+        :type min_atoms: int, optional
+        :return: An array of atom indices.
         :raises ValueError: If the selection is invalid or does not contain enough atoms.
-        '''
+        """
 
         try:
             atom_indices = self._top.select(selection)
-        except:
-            raise ValueError("Selection is invalid.")
+        except Exception as e:
+            raise ValueError(f"Invalid selection: {selection}. Error: {e}")
+
         if min_atoms is not None and len(atom_indices) < min_atoms:
-            raise ValueError((f"Selection {selection} does not contain enough atoms "
-                              f"({len(atom_indices)} < {min_atoms})."
-                              ))
+            raise ValueError(f"Selection '{selection}' contains only {len(atom_indices)} atoms, "
+                            f"which is less than the required {min_atoms}.")
+
         return atom_indices
 
     def get_rmsd(self, selection: str = "name CA") -> dict[str, float]:
@@ -158,8 +157,8 @@ class FeatureSelection(object):
         The reference structure is provided in the constructor.
 
         :param selection: str: The selection string to use to select the atoms.
-        :return: np.ndarray: RMSD. Unit: Angstrom
-        :rtype: np.ndarray
+        :return: dict: A dictionary of pdb names and their RMSD values. Units: Angstrom.
+        :rtype: dict[str, float]
         '''
 
         sel = self._select_and_validate(selection, 2)

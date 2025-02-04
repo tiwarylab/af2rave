@@ -18,51 +18,51 @@ from openmm.unit import Quantity, is_quantity
 
 class UnbiasedSimulation():
     '''
-    UnbiasedSimulation class for running MD.
-
+    UnbiasedSimulation class for running MD. An example use is:
+    ```
     > import af2rave.simulation as af2sim
     > sim = af2sim.UnbiasedSimulation(<arguments>)
     > sim.run(steps)
+    ```
+
+    These are the parameters the initialization function accepts:
+
+    :param pdb_file: Path to OpenMM.app.pdbfile.PDBFile object
+    :type pdb_file: str
+    :param list_of_index: List of indexes to calculate the CVs
+    :type list_of_index: list[tuple[int, int]]
+    :param forcefield: OpenMM.app.ForceField object. Default: Charmm36mFF
+    :type forcefield: OpenMM.app.ForceField
+    :param temp: Temperature of the system. Default: 310 K
+    :type temp: float | openmm.unit.Quantity[unit=kelvin]
+    :param pressure: Pressure of the system. Default: 1 Bar.
+        Can be set to none to disable pressure coupling (NVT).
+    :type pressure: float | openmm.unit.Quantity[unit=bar]
+    :param dt: Time step of the integrator. Default: 0.002 ps
+    :type dt: float | openmm.unit.Quantity[unit=picoseconds]
+    :param cutoff: Nonbonded cutoff. Default: 10.0 Angstroms
+    :type cutoff: float | openmm.unit.Quantity[unit=angstroms]
+    :param steps: Simulation steps. Default:  50 million steps (100 ns)
+    :type steps: int
+    :param cv_file: File to write CVs to. Default: COLVAR.dat
+    :type cv_file: str
+    :param cv_freq: Frequency of CVs written to the file. Default: 50
+    :type cv_freq: int
+    :param xtc_file: Trajectory file name. Default: traj.xtc
+    :type xtc_file: str
+    :param xtc_freq: Frequency writing trajectory in steps. Default: 1000
+    :type xtc_freq: int
+    :param xtc_reporter: XTCReporter object.
+        This overrides traj_filename and traj_freq. Default: None
+    :type xtc_reporter: mdtraj.reporters.XTCReporter
+    :param append: Appends to existing file. Default: False
+    :type append: bool
+    :param progress_every: Progress report to stdout frequency. Default: 1000
+        Can be set to None to suppress this.
+    :type progress_every: int
     '''
 
     def __init__(self, pdb_file, **kwargs):
-        '''
-        Simulation parameters
-
-        :param pdb_file: Path to OpenMM.app.pdbfile.PDBFile object
-        :type pdb_file: str
-        :param list_of_index: List of indexes to calculate the CVs
-        :type list_of_index: list[tuple[int, int]]
-        :param forcefield: OpenMM.app.ForceField object. Default: Charmm36mFF
-        :type forcefield: OpenMM.app.ForceField
-        :param temp: Temperature of the system. Default: 310 K
-        :type temp: float | openmm.unit.Quantity[unit=kelvin]
-        :param pressure: Pressure of the system. Default: 1 Bar.
-            Can be set to none to disable pressure coupling (NVT).
-        :type pressure: float | openmm.unit.Quantity[unit=bar]
-        :param dt: Time step of the integrator. Default: 0.002 ps
-        :type dt: float | openmm.unit.Quantity[unit=picoseconds]
-        :param cutoff: Nonbonded cutoff. Default: 10.0 Angstroms
-        :type cutoff: float | openmm.unit.Quantity[unit=angstroms]
-        :param steps: Simulation steps. Default:  50 million steps (100 ns)
-        :type steps: int
-        :param cv_file: File to write CVs to. Default: COLVAR.dat
-        :type cv_file: str
-        :param cv_freq: Frequency of CVs written to the file. Default: 50
-        :type cv_freq: int
-        :param xtc_file: Trajectory file name. Default: traj.xtc
-        :type xtc_file: str
-        :param xtc_freq: Frequency writing trajectory in steps. Default: 1000
-        :type xtc_freq: int
-        :param xtc_reporter: XTCReporter object.
-            This overrides traj_filename and traj_freq. Default: None
-        :type xtc_reporter: mdtraj.reporters.XTCReporter
-        :param append: Appends to existing file. Default: False
-        :type append: bool
-        :param progress_every: Progress report to stdout frequency. Default: 1000
-            Can be set to None to suppress this.
-        :type progress_every: int
-        '''
 
         self._prefix = f"{Path(pdb_file).stem}"
 
@@ -92,7 +92,14 @@ class UnbiasedSimulation():
             self.simulation.context.reinitialize()
 
     @property
-    def pos(self):
+    def pos(self) -> list[openmm.Vec3]:
+        '''
+        Get the positions of the simulation.
+
+        :return: List of positions
+        :rtype: list[openmm.Vec3]
+        '''
+
         self._pos = self.simulation.context.getState(getPositions=True).getPositions()
         return self._pos
 
@@ -146,7 +153,7 @@ class UnbiasedSimulation():
         '''
         Save the checkpoint of the simulation.
 
-        :param filename: Name of the checkpoint file. Default: {prefix}_out.chk
+        :param filename: Name of the checkpoint file. Default: `{prefix}_out.chk`
         :type filename: str
         '''
         if filename is None:
@@ -157,7 +164,7 @@ class UnbiasedSimulation():
         '''
         Save the final state PDB of the simulation.
 
-        :param filename: Name of the pdb file. Default: {prefix}_out.pdb
+        :param filename: Name of the pdb file. Default: `{prefix}_out.pdb`
         :type filename: str
         '''
         if filename is None:
