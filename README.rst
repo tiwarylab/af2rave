@@ -12,12 +12,19 @@ AlphaFold2-RAVE package generates boltzman-ranked non-native conformations for p
 * Documentation: https://af2rave.readthedocs.io
 
 
+.. image:: scheme.png
+    :target: https://af2rave.readthedocs.io/en/latest/
+    :align: center
+
 Installation
 ----------------
 
 It is strongly recommended a separate environment for this package. 
 The environment.yml will take care of most of the dependencies.
 If you choose to install the dependencies this way, ColabFold will be selected as the default AlphaFold2 model.
+
+First, make sure you have your ssh-key to GitHub correctly setup, or use the https link to clone the repository.
+Either `conda` or `mamba` (recommended) is required. The code schnippet uses conda but feel free to use mamba.
 
 .. code-block:: console
 
