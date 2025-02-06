@@ -13,7 +13,7 @@ AlphaFold2-RAVE package generates boltzman-ranked non-native conformations for p
 
 
 .. image:: scheme.png
-    :target: https://af2rave.readthedocs.io/en/latest/
+    :target: https://doi.org/10.26434/chemrxiv-2025-q3mwr
     :align: center
 
 Installation
@@ -49,6 +49,10 @@ You may need to download the model parameters for ColabFold with
 
 Bibliography
 ----------------
+
+The main article describing the method is:
+
+* Da Teng, Vanessa J. Meraz, Akashnathan Aranganathan, Xinyu Gu, and Pratyush Tiwary, AlphaFold2-RAVE: Protein Ensemble Generation with Physics-Based Sampling, ChemRxiv (2025) https://doi.org/10.26434/chemrxiv-2025-q3mwr
 
 AlphaFold2-RAVE:
 
