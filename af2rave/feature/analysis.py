@@ -162,8 +162,8 @@ class FeatureSelection:
         '''
 
         sel = self._select_and_validate(selection, 2)
-        rmsd = md.rmsd(self.traj, self._ref, atom_indices=sel) * 10
-        return {pdb: r for pdb, r in zip(self.pdb_name, rmsd)}
+        rmsd = md.rmsd(self._traj, self._ref, atom_indices=sel) * 10
+        return {pdb: r for pdb, r in zip(self._pdb_name, rmsd)}
 
     # ===== Filtering =====
 
@@ -199,14 +199,24 @@ class FeatureSelection:
         '''
         raise NotImplementedError("This method is not implemented yet. Email Akash.")
     
-    def apply_filter(self, mask: list[str]) -> None:
+    def apply_filter(self, *args: list[str]) -> None:
         '''
-        Apply a mask to the trajectory.
+        Apply a mask to the trajectory. 
+        Each mask is a list of strings which are pdb names to keep.
+        Multiple masks can be applied at once.
+
+        Example:
+        ``` python3
+        fs.apply_filter(mask)
+        fs.apply_filter(mask1, mask2)
+        ```
 
         :param mask: The mask to apply.
         :type mask: list[str]
         :raises ValueError: If the mask is invalid.
         '''
+
+        mask = natsorted(set.intersection(*map(set, args)))
 
         # Check if the mask is valid
         exist = [m in self.pdb_name for m in mask]
@@ -215,8 +225,8 @@ class FeatureSelection:
             raise ValueError(f"Invalid mask. Some structures do not exist: {non_exist}")
 
         # Apply the mask
+        idx = [self._pdb_name.index(m) for m in mask]
         self._pdb_name = mask
-        idx = [self.pdb_name.index(m) for m in mask]
         self._traj = md.join([self._traj[i] for i in idx])
 
     # ===== Feature selection =====
