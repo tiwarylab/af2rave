@@ -13,16 +13,17 @@ TopologyLike = app.Topology | md.Topology | str
 
 
 class TopologyMap:
+    '''
+    Create a mapping between the old and new topology.
+
+    :param old_top: old topology, either a path or an OpenMM or MDTraj topology object
+    :type old_top: app.Topology or md.Topology or str
+    :param new_top: new topology, either a path or an OpenMM or MDTraj topology object
+    :type new_top: app.Topology or md.Topology or str
+    '''
 
     def __init__(self, old_top: TopologyLike, new_top: TopologyLike):
-        '''
-        Create a mapping between the old and new topology.
 
-        :param old_top: old topology, either a path or an OpenMM or MDTraj topology object
-        :type old_top: app.Topology or md.Topology or str
-        :param new_top: new topology, either a path or an OpenMM or MDTraj topology object
-        :type new_top: app.Topology or md.Topology or str
-        '''
 
         self._old_top = self._load_topology(old_top)
         self._new_top = self._load_topology(new_top)
@@ -102,17 +103,17 @@ class TopologyMap:
 
 
 class SimulationBox:
+    '''
+    Create a simulation box from a protein PDB box.
+
+    :param filename: path to the pdb file
+    :type filename: str
+    :param forcefield: forcefield to be used for adding hydrogens
+    :type forcefield: OpenMM.app.ForceField
+    '''
 
     def __init__(self, filename: str,
                  forcefield: app.ForceField = Charmm36mFF):
-        '''
-        Create a simulation box from a protein PDB box.
-
-        :param filename: path to the pdb file
-        :type filename: str
-        :param forcefield: forcefield to be used for adding hydrogens
-        :type forcefield: OpenMM.app.ForceField
-        '''
 
         self._filename = filename
         self._forcefield = forcefield
@@ -197,9 +198,22 @@ class SimulationBox:
 
         # initialize a mapping object
         self.top_map = TopologyMap(app.PDBFile(self._filename).topology, self.top)
-        self.map_atom_index = self.top_map.map_atom_index
+        self._map_atom_index = self.top_map.map_atom_index
 
         return modeller.positions, modeller.topology
+
+    @property
+    def map_atom_index(self):
+        '''
+        Map atom index from input PDB to the output PDB file.
+
+        After adding hydrogen, the atom index will be changed. This function
+        translates the old atom index to the new atom index.
+
+        :param index: atom index or a list of atom indices
+        :type index: AtomIndexLike: int or set[int] or list[int] or list[set[int]]
+        '''
+        return self._map_atom_index
 
     def save_pdb(self, filename: str):
         """

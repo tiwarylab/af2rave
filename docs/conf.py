@@ -46,8 +46,8 @@ source_suffix = ['.rst', '.md']
 master_doc = 'index'
 
 # General information about the project.
-project = 'af2rave'
-copyright = "2024, Tiwary Group"
+project = 'af2rave package'
+copyright = "2024-2025, Tiwary Group"
 author = "Da Teng"
 
 # The version info for the project you're documenting, acts as replacement

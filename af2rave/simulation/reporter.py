@@ -10,27 +10,24 @@ from openmm.unit import angstroms
 class CVReporter(object):
     '''
     An OpenMM reporter that writes a PLUMED-style COLVAR file of the features.
-    This reporter writes to the `file` every `reportInterval` steps.
+    This reporter writes to the ``file`` every ``reportInterval`` steps.
     The first column is the number of steps instead of time.
     Distances are in the units of Angstorms.
+
+    :param file: The name of the file to write the CVs to. Default: COLVAR.dat
+    :type file: str
+    :param reportInterval: The interval at which to write the CVs. Default: 100
+    :type reportInterval: int
+    :param list_of_indexes: The list of indexes to calculate the CVs. Default: None
+    :type list_of_indexes: list[tuple[int, int]]
+    :param append: Append to existing file
+    :type append: bool
     '''
 
     def __init__(self, file: str = "COLVAR.dat",
                  reportInterval: int = 100,
                  list_of_indexes: list[tuple[int, int]] = None,
                  append: bool = False):
-        '''
-        Initialize the CVReporter object.
-
-        :param file: The name of the file to write the CVs to. Default: COLVAR.dat
-        :type file: str
-        :param reportInterval: The interval at which to write the CVs. Default: 100
-        :type reportInterval: int
-        :param list_of_indexes: The list of indexes to calculate the CVs. Default: None
-        :type list_of_indexes: list[tuple[int, int]]
-        :param append: Append to existing file
-        :type append: bool
-        '''
 
         self._out = open(file, 'a' if append else 'w')
         self._reportInterval = reportInterval
@@ -50,10 +47,16 @@ class CVReporter(object):
         self._out.close()
 
     def describeNextReport(self, simulation):
+        '''
+        OpenMM reporter method to describe the next report.
+        '''
         steps = self._reportInterval - simulation.currentStep % self._reportInterval
         return (steps, True, False, False, False, None)
 
     def report(self, simulation, state):
+        '''
+        OpenMM reporter method to report the current state.
+        '''
         step = simulation.currentStep
         coord = state.getPositions(asNumpy=True)
         for i, (a, b) in enumerate(self.list_of_cv):

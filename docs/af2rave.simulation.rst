@@ -1,30 +1,28 @@
 af2rave.simulation module
 ==========================
 
-Submodules
-----------
 
-af2rave.simulation.reporter module
-----------------------------------
+Utilities for creating simulation box
+--------------------------------------
 
-.. automodule:: af2rave.simulation.reporter
+.. automodule:: af2rave.simulation.utils
    :members:
-   :undoc-members:
+   :undoc-members: TopologyMap
    :show-inheritance:
 
-af2rave.simulation.simulation module
-------------------------------------
+
+Tools for unbiased simulation
+------------------------------
 
 .. automodule:: af2rave.simulation.simulation
    :members:
    :undoc-members:
    :show-inheritance:
 
-af2rave.simulation.utils module
--------------------------------
+OpenMM reporters
+----------------
 
-.. automodule:: af2rave.simulation.utils
+.. automodule:: af2rave.simulation.reporter
    :members:
    :undoc-members:
    :show-inheritance:
-

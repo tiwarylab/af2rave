@@ -107,12 +107,9 @@ class UnbiasedSimulation():
         '''
         Run the simulation from given pdb file. Default: 50 million steps (100 ns).
 
-        :param barostat:
-        :type barostat: bool
-        :param save: Saves simulation if True. Default: True
-        :type save: bool
-        :param restart: Restarts simulation from saved checkpoint if True. Default: False
-        :type restart: bool
+        :param steps: Number of steps to run the simulation.
+            Default: 50 million steps (100 ns)
+        :type steps: int
         '''
 
         # we have to do this at this later stage, because by design we

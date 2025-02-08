@@ -7,7 +7,7 @@ af2rave Documentation
 
    readme
    usage
-   modules
+   af2rave
    authors
    history
 
