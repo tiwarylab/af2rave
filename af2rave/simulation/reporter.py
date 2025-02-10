@@ -14,6 +14,9 @@ class CVReporter(object):
     The first column is the number of steps instead of time.
     Distances are in the units of Angstorms.
 
+    This reporter calculates distances without a PBC. This is equivalent to NOPBC
+    option in PLUMED. This should do the right thing most of the time.
+
     :param file: The name of the file to write the CVs to. Default: COLVAR.dat
     :type file: str
     :param reportInterval: The interval at which to write the CVs. Default: 100
@@ -51,7 +54,7 @@ class CVReporter(object):
         OpenMM reporter method to describe the next report.
         '''
         steps = self._reportInterval - simulation.currentStep % self._reportInterval
-        return (steps, True, False, False, False, None)
+        return (steps, True, False, False, False, False)
 
     def report(self, simulation, state):
         '''
