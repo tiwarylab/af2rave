@@ -22,12 +22,22 @@ class TopologyMap:
     :type new_top: app.Topology or md.Topology or str
     '''
 
-    def __init__(self, old_top: TopologyLike, new_top: TopologyLike):
+    def __init__(self, old_top: TopologyLike, new_top: TopologyLike, resid_offset = 0):
+        '''
+        Create a mapping between the old and new topology.
 
+        :param old_top: old topology, either a path or an OpenMM or MDTraj topology object
+        :type old_top: app.Topology or md.Topology or str
+        :param new_top: new topology, either a path or an OpenMM or MDTraj topology object
+        :type new_top: app.Topology or md.Topology or str
+        :param resid_offset: offset to be added to the residue id to align two topologies. Default is 0.
+            For example, if a residue in the old topology has resid 1 and 
+            in the new topology has resid 101, then resid_offset = 100.
+        '''
 
         self._old_top = self._load_topology(old_top)
         self._new_top = self._load_topology(new_top)
-        self._atom_index_map = self._generate_mapping_table()
+        self._atom_index_map = self._generate_mapping_table(resid_offset)
 
     def _load_topology(self, top: TopologyLike) -> app.Topology:
         '''
@@ -46,7 +56,7 @@ class TopologyMap:
         else:
             raise ValueError("top must be a path to a PDB file or an OpenMM or MDTraj topology object.")
 
-    def _generate_mapping_table(self):
+    def _generate_mapping_table(self, resid_offset: int) -> dict[int, int]:
 
         index_lookup = {}
         forward_map = {}
@@ -57,7 +67,7 @@ class TopologyMap:
             # retrieve information for the old map
             index = a.index
             name = a.name
-            resid = a.residue.id
+            resid = int(a.residue.id)
             chain = a.residue.chain.id
             index_lookup[(chain, resid, name)] = index
 
@@ -65,10 +75,10 @@ class TopologyMap:
         for a in self._new_top.atoms():
             index = a.index
             name = a.name
-            resid = a.residue.id
+            resid = int(a.residue.id)
             chain = a.residue.chain.id
             try:
-                old_index = index_lookup[(chain, resid, name)]
+                old_index = index_lookup[(chain, resid-resid_offset, name)]
                 forward_map[old_index] = index
             except KeyError:
                 pass
@@ -118,6 +128,75 @@ class SimulationBox:
         self._filename = filename
         self._forcefield = forcefield
 
+        # fixer instance
+        with open(self._filename, 'r') as ifs:
+            fixer = pdbfixer.PDBFixer(pdbfile=ifs)
+
+        # finding and adding missing residues including terminals
+        fixer.findNonstandardResidues()
+        fixer.replaceNonstandardResidues()
+        fixer.findMissingResidues()
+        fixer.findMissingAtoms()
+        fixer.addMissingAtoms(seed=0)
+
+        '''
+        PDB fixer automatically add disulfide bonds when two cys-S are close.
+        First, this may not always be the case. Second, this behavior is not
+        verbose in AMBER ffs as they actually have the CYM residue for disulfide-
+        bonded CYS. Meanwhile, CHARMM ffs do not have CYM and modeller will
+        complain. We will remove the disulfide bond here.
+        '''
+        modeller = app.Modeller(fixer.topology, fixer.positions)
+        ds_bonds = []
+        for bond in modeller.topology.bonds():
+            if bond.atom1.name == 'SG' and bond.atom2.name == 'SG':
+                ds_bonds.append(bond)
+        modeller.delete(ds_bonds)
+
+        self.top = modeller.topology
+        self.pos = modeller.positions
+
+    def add_disulfide_bond(self, resid: list[tuple[int, int]]):
+        '''
+        By default the simulation box after create_box() does not have any disulfide bonds.
+        This method will add back the bonds when necessary.
+        This method currently only works with AMBER forcefields.
+
+        :param resid: list of tuples of CYS residues that are bonded
+        :type resid: list[tuple[int, int]]
+        '''
+
+        # create modeller instance
+        modeller = app.Modeller(self.top, self.pos)
+
+        # add disulfide bonds
+        for i, j in resid:
+            residues = {int(r.id): r for r in modeller.topology.residues()}
+            residue_i, residue_j = residues[i], residues[j]
+            if residue_i.name != "CYS" or residue_j.name != "CYS":
+                raise ValueError(f"Residues {i}({residue_i.name}) {j}({residue_j.name}) both need to be cysteines.")
+            atoms_i = {atom.name: atom for atom in residue_i.atoms()}
+            atoms_j = {atom.name: atom for atom in residue_j.atoms()}
+
+            if "SG" in atoms_i and "SG" in atoms_j:
+                modeller.topology.addBond(atoms_i["SG"], atoms_j["SG"])
+#                residue_i.name, residue_j.name = 'CYX', 'CYX'
+            else:
+                if "SG" not in atoms_i:
+                    raise ValueError(f"Residues {i} do not have an SG atom.")
+                else:
+                    raise ValueError(f"Residues {j} do not have an SG atom.")
+            
+            to_delete = []
+            if "HG" in atoms_i:
+                to_delete.append(atoms_i["HG"])
+            if "HG" in atoms_j:
+                to_delete.append(atoms_j["HG"])
+            modeller.delete(to_delete)
+        
+        self.top = modeller.topology
+        self.pos = modeller.positions
+
     def create_box(self, **kwargs) -> tuple[list, app.Topology]:
         """
         Generate the simulation box from a raw pdb file.
@@ -142,32 +221,8 @@ class SimulationBox:
         :type ionicStrength: float
         """
 
-        # fixer instance
-        with open(self._filename, 'r') as ifs:
-            fixer = pdbfixer.PDBFixer(pdbfile=ifs)
-
-        # finding and adding missing residues including terminals
-        fixer.findNonstandardResidues()
-        fixer.replaceNonstandardResidues()
-        fixer.findMissingResidues()
-        fixer.findMissingAtoms()
-        fixer.addMissingAtoms(seed=0)
-
         # create modeller instance
-        modeller = app.Modeller(fixer.topology, fixer.positions)
-
-        '''
-        PDB fixer automatically add disulfide bonds when two cys-S are close.
-        First, this may not always be the case. Second, this behavior is not
-        verbose in AMBER ffs as they actually have the CYM residue for disulfide-
-        bonded CYS. Meanwhile, CHARMM ffs do not have CYM and modeller will
-        complain. We will remove the disulfide bond here.
-        '''
-        ds_bonds = []
-        for bond in modeller.topology.bonds():
-            if bond.atom1.name == 'SG' and bond.atom2.name == 'SG':
-                ds_bonds.append(bond)
-        modeller.delete(ds_bonds)
+        modeller = app.Modeller(self.top, self.pos)
 
         # add hydrogens
         self.pH = kwargs.get('pH', 7.0)
