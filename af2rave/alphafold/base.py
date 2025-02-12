@@ -92,7 +92,7 @@ class AlphaFoldBase(object):
         raise NotImplementedError("AlphaFoldBase::predict() is a pure virtual function.")
 
 
-def parse_fasta(fasta_string: str) -> Tuple[List[str], List[str]]:
+def parse_fasta(fasta_string: str) -> tuple[list[str], list[str]]:
     """Parses FASTA string and returns list of strings with amino-acid sequences.
 
     Arguments:

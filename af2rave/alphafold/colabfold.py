@@ -52,6 +52,8 @@ class ColabFold(AlphaFoldBase):
         if self._msa is not None:
             self._queries = self._get_query_from_msa(self._msa)
             print("[colabfold] Found MSA input.")
+        else:
+            self._queries, _ = self._get_query_from_fasta(self._fasta_string)
 
         try:
             max_seq, max_extra_seq = msa.split(":")
