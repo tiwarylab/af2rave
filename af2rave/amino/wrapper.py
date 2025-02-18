@@ -13,25 +13,25 @@ from ..colvar import Colvar
 from . import amino
 
 class AMINO(object):
+    '''
+    AMINO module reduces the redudancy in choice of collective variables.
+    Usually the default parameters are best suited for af2rave use. 
+    If you have memory issues, consider reducing the number of bins or striding the data.
+    The performance of the code is O(N^2M),
+    where N is the number of order parameters and M is the number of data points.
+    The memory bottleneck is the mutual information calculation.
+
+    :param n: The maximum number of order parameters to consider. Default is 20.
+    :type n: int
+    :param bins: The number of bins for the computing the mutual information. Default is 50.
+    :type bins: int
+    :param kde_bandwidth: The bandwidth for the kernel density estimation. Default is 0.02.
+    :type kde_bandwidth: float
+    :param verbose: Whether to print the progress. Default is False.
+    :type verbose: bool
+    '''
 
     def __init__(self, **kwargs) -> None:
-        '''
-        AMINO module reduces the redudancy in choice of collective variables.
-        Usually the default parameters are best suited for af2rave use. 
-        If you have memory issues, consider reducing the number of bins or striding the data.
-        The performance of the code is O(N^2M),
-        where N is the number of order parameters and M is the number of data points.
-        The memory bottleneck is the mutual information calculation.
-
-        :param n: The maximum number of order parameters to consider. Default is 20.
-        :type n: int
-        :param bins: The number of bins for the computing the mutual information. Default is 50.
-        :type bins: int
-        :param kde_bandwidth: The bandwidth for the kernel density estimation. Default is 0.02.
-        :type kde_bandwidth: float
-        :param verbose: Whether to print the progress. Default is False.
-        :type verbose: bool
-        '''
 
         self._n = kwargs.get('n', 20)
         self._bins = kwargs.get('bins', 50)

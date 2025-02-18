@@ -8,3 +8,4 @@ Usage
    usage.feature
    usage.preparemd
    usage.mdsim
+   usage.amino

@@ -17,7 +17,7 @@ The :class:`af2rave.simulation.utils.SimulationBox` takes care of solvation and 
     import af2rave.simulation 
     box = af2rave.simulation.SimulationBox("sample.pdb")
     box.create_box(ionicStrength=0.15)
-    box.save("sample_box.pdb")
+    box.save_pdb("sample_box.pdb")
 
 You can provide other parameters to the ``create_box`` method, such as how thick the water padding should be, the type of water model (default: TIP3P) and salt (default: NaCl).
 

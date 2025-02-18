@@ -6,32 +6,38 @@ Installation
 ----------------
 
 It is strongly recommended a separate environment for this package. 
-The environment.yml will take care of most of the dependencies.
+The ``environment.yml`` will take care of most of the dependencies.
 If you choose to install the dependencies this way, ColabFold will be selected as the default AlphaFold2 model.
+
+First, make sure you have your ssh-key to GitHub correctly setup, or use the https link to clone the repository.
+Either ``conda`` or ``mamba`` (recommended) is required. The code schnippet uses conda but feel free to use mamba.
 
 .. code-block:: console
 
     $ git clone git@github.com:tiwarylab/af2rave.git af2rave
     $ cd af2rave
-    $ conda env create -n af2rave 
-    $ conda activate af2rave
-    $ conda install python=3.11 
-    $ conda install -f environment.yml
+    $ conda env create -n af2rave -f environment.yml
+    $ conda activate af2rave 
 
-Then use `pip` to install the package.
+Then use ``pip`` to install the package.
 
 .. code-block:: console
 
     $ pip install .
 
-You may need to download the model parameters for ColabFold with
+If you want the folding module installed. You need to install ColabFold with ``conda`` and download its parameters.
 
 .. code-block:: console
 
+    $ conda install colabfold
     $ python -m colabfold.download
 
 Bibliography
 ----------------
+
+The main article describing the method is:
+
+* Da Teng, Vanessa J. Meraz, Akashnathan Aranganathan, Xinyu Gu, and Pratyush Tiwary, AlphaFold2-RAVE: Protein Ensemble Generation with Physics-Based Sampling, ChemRxiv (2025) https://doi.org/10.26434/chemrxiv-2025-q3mwr
 
 AlphaFold2-RAVE:
 
@@ -46,4 +52,3 @@ SPIB:
 AMINO: 
 
 * Pavan Ravindra, Zachary Smith and Pratyush Tiwary, Automatic mutual information noise omission (AMINO): generating order parameters for molecular systems, *Mol. Syst. Des. Eng.*, 2020,5, 339-348, https://doi.org/10.1039/C9ME00115H
-
