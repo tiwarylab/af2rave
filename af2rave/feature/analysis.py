@@ -285,10 +285,10 @@ class FeatureSelection:
         Multiple masks can be applied at once.
 
         Example:
-        .. code-block:: python
+            .. code-block:: python
 
-            fs.apply_filter(mask)
-            fs.apply_filter(mask1, mask2)
+                fs.apply_filter(mask)
+                fs.apply_filter(mask1, mask2)
 
         :param list[str] mask: The mask to apply.
         :raises ValueError: If the mask is invalid.
@@ -338,16 +338,20 @@ class FeatureSelection:
                      selection: str | tuple[str, str] | list[str | tuple[str, str]] = "name CA"
                      ) -> tuple[list[str], NDArray[np.float_]]:
         """
-        Rank the features by the coefficient of variation (CV).
+        Rank the features by the coefficient of variation (CV). 
+        The argument ``selection`` can be:
 
-        `selection` can be:
-        - A string: Computes all pairs of atoms within the selection.
-        - A tuple of two strings: Computes all pairs of atoms between the two selections.
-        - A list of strings or tuples: Computes atom pairs for each selection in the list.
+            - A `string`: 
+                Computes all pairs of atoms within the selection.
+            - A `tuple` of two strings: 
+                Computes all pairs of atoms between the two selections.
+            - A `list` of strings or tuples: 
+                Computes atom pairs for each selection in the list.
 
         :param selection: The selection string(s) used to determine atom pairs.
-        :return names: A list of feature names.
-        :return cv: A NumPy array containing the coefficient of variation values.
+        :return: 
+            - names: A list of feature names.
+            - cv: A NumPy array containing the coefficient of variation values.
         :raises ValueError: If `selection` is not a valid type.
         """
 
@@ -366,7 +370,9 @@ class FeatureSelection:
         pw_dist = md.compute_distances(self.traj, atom_pairs, periodic=False) * 10
 
         # Generate feature names
-        names = [f"{representation(self._top, i)}-{representation(self._top, j)}" for i, j in atom_pairs]
+        names = [f"{representation(self._top, i)}-{representation(self._top, j)}" 
+                 for i, j in atom_pairs
+                 ]
 
         # Store features
         for name, pwd, ap in zip(names, pw_dist.T, atom_pairs):
@@ -377,7 +383,8 @@ class FeatureSelection:
         mean_dist = np.mean(pw_dist, axis=0)
         std_dist = np.std(pw_dist, axis=0)
 
-        with np.errstate(divide='ignore', invalid='ignore'):  # Handle division errors safely
+        # Handle division errors safely
+        with np.errstate(divide='ignore', invalid='ignore'):  
             cv = np.where(mean_dist != 0, std_dist / mean_dist, np.nan)
 
         # Rank features by CV in descending order
