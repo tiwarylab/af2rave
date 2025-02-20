@@ -19,11 +19,12 @@ from openmm.unit import Quantity, is_quantity
 class UnbiasedSimulation():
     '''
     UnbiasedSimulation class for running MD. An example use is:
-    ```
-    > import af2rave.simulation as af2sim
-    > sim = af2sim.UnbiasedSimulation(<arguments>)
-    > sim.run(steps)
-    ```
+
+    .. code-block:: python
+
+        import af2rave.simulation as af2sim
+        sim = af2sim.UnbiasedSimulation(<arguments>)
+        sim.run(steps)
 
     These are the parameters the initialization function accepts:
 

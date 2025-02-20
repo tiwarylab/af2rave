@@ -13,13 +13,27 @@ from numpy.typing import NDArray
 
 
 class SPIBResult():
+    '''
+    The container class for SPIB results. 
+    An SPIBProcess will create an instance of it. 
+    This object has a variety of method to retrieve and analyze the results.
+
+    Example usage:
+        .. code-block:: python
+
+            result = SPIBResult.from_file("spib_result.pkl")
+            n = result.n_converged_states
+    
+    This will compute and return the number of converged states in the SPIB model.
+        
+    '''
 
     def __init__(self, prefix: str, postfix: str, n_traj: int, **kwargs):
         '''
         This object should be treated as read-only to the user. 
         Not supposed to be constructed by the user. Use SPIBResult.from_file() instead.
 
-        The method SPIBProcess.run() will be responsible for creating this container class.
+        The method :py:method:`SPIBProcess.run()` will be responsible for creating this container class.
         '''
 
         self._prefix = prefix
@@ -67,7 +81,7 @@ class SPIBResult():
 
     def _np_load(self, keyword: str, i_traj: int = None):
         '''
-        Load a numpy file with the given keyword. Provide i_traj if that file is trajectory-specific.
+        Load a numpy file with the given keyword. Provide ``i_traj`` if that file is trajectory-specific.
         '''
         if i_traj is None:
             return np.load(f"{self._prefix}_{keyword}{self._postfix}")
@@ -101,7 +115,7 @@ class SPIBResult():
     @property
     def dt(self) -> float:
         '''
-        Time lag for this run.
+        Time lag used for this run.
         '''
         return self._dt
 
@@ -116,7 +130,7 @@ class SPIBResult():
     def n_input_labels(self) -> int:
         '''
         The number of initial states/input labels.
-        Typically this is 2 * n_traj.
+        With default initialization, this is 2 * n_traj.
         '''
         return self._n_input_labels
 
@@ -130,38 +144,43 @@ class SPIBResult():
     @property
     def weight(self) -> NDArray:
         '''
-        The weight of the linear transformation. This weight is applied to the normalized input data for understanding the projection.
+        The weight of the linear encoder. 
+        
+        This weight is applied to the normalized input data, so it provides
+        understanding of the projection. To apply to raw input data, use :py:attr:`SPIBResult.apparent_weight`.
         '''
         return self._z_mean_encoder["weight"]
     
     @property
     def bias(self) -> NDArray: 
         '''
-        The bias of the linear transformation. This bias is applied to the normalized input data for understanding the projection.
+        The bias of the linear encoder.
+         
+        This bias is applied to the normalized input data for understanding the
+        projection. To apply to raw input data, use :py:attr:`apparent_weight`. 
         '''
         return self._z_mean_encoder["bias"].reshape(-1, 1)
     
     @property
     def apparent_weight(self) -> NDArray:
         '''
-        The apparent temperature of the model. This is the weight when directly applied to the CVs.
-        Shape: 2 x n_input_dims
-
-        z = weight *  (X - b) / k + bias
-          = (weight / k) * X + (bias - weight * b / k)
-
+        The apparent weight of the model. 
+        This is the weight when directly applied to the CVs.
+        Shape: 2 x ``n_input_dims``
         '''
+
+        # z = weight *  (X - b) / k + bias = (weight / k) * X + (bias - weight * b / k)
         return self.weight / self._k.reshape(1, -1)
     
     @property
     def apparent_bias(self) -> NDArray:
         '''
-        The apparent bias of the model. This is the bias when directly applied to the CVs.
-
-        z = weight *  (X - b) / k + bias
-          = (weight / k) * X + (bias - weight * b / k)
-          = apparent_weight * X + (bias - apparent_weight * b)
+        The apparent bias of the model. 
+        This is the bias when directly applied to the CVs.
+        Shape: 2 x 1
         '''
+
+        # z = weight *  (X - b) / k + bias = (weight / k) * X + (bias - weight * b / k)
         return self.bias - np.dot(self.apparent_weight, self._b.reshape(-1, 1))
 
     def _get_converged_states(self) -> NDArray:
@@ -177,12 +196,16 @@ class SPIBResult():
             labels |= np.any(self._traj[i]["labels"], axis=0)
         return labels
 
-    def project(self, X):
+    def project(self, X) -> NDArray:
         '''
         Project the input data to the latent space.
 
-        :param X: The input data to project. Dimension: n_input_dims x n_frames
+        :param X: The input data to project. 
+            Dimension: ``n_input_dims`` x ``n_frames``
         :type X: np.ndarray
+        :return: The projected data.
+            Dimension: 2 x ``n_frames``
+        :rtype: np.ndarray
         '''
 
         return self.apparent_weight @ X + self.apparent_bias
@@ -200,8 +223,23 @@ class SPIBResult():
 
     def get_latent_representation(self, traj_idx: list[int] | int = None) -> NDArray:
         '''
-        Return the latent representation of the trajectory.
-        If no index is provides, return all trajectories.
+        Return the latent representation of one or all trajectory.
+        If no index is provided, return all trajectories.
+
+        :param traj_idx: The index of the trajectory. If None, return all trajectories.
+        :type traj_idx: int, list[int], optional
+        :return: The latent representation. shape: 2 x ``n_frames`` * ``n_traj``
+        :rtype: np.ndarray
+
+        Example:
+
+        - Get the latent representation of the first and second trajectory
+
+        ``result.get_latent_representation([0, 1])``
+
+        - Get the latent representation of all trajectories
+
+        ``result.get_latent_representation()``
         '''
 
         if traj_idx is not None:
@@ -255,24 +293,39 @@ class SPIBResult():
 
         :param nbins: The number of bins for the histogram. The format is the same with np.histogram2d.
         :type nbins: int, (int, int), optional, default=200
-        :return: x, y, h
+        :return: x, y, h. x and y are the bin edges, h is the histogram.
+
+        Example:
+
+        - Plot in matplotlib
+
+        ``plt.pcolor(*result.get_probability_distribution(), cmap="RdBu_r", shading="auto")``
+
+        The sequence of the return value allows a direct input to the pcolor function.
         '''
 
-        h, x, y = np.histogram2d(*self.get_latent_representation(), bins=nbins, density=True)
+        h, x, y = np.histogram2d(
+            *self.get_latent_representation(), 
+            bins=nbins, 
+            density=True
+        )
         return x, y, h.T    # what the hell is this transpose?
 
     def get_free_energy(self, nbins=200) -> tuple[NDArray, NDArray, NDArray]:
         '''
-        Get the free energy as the negative logarithm of the probability distribution. Unit: kT
+        Get the free energy as the negative logarithm of the probability distribution. 
+        Unit: kT
 
-        :param nbins: The number of bins for the histogram. The format is the same with np.histogram2d.
+        :param nbins: The number of bins for the histogram. 
+            The format is the same with np.histogram2d.
         :type nbins: int, (int, int), optional, default=200
-        :return: x, y, f
+        :return: x, y, f. x and y are the bin edges, f is the free energy.
 
         Example:
+
         - Plot in matplotlib
 
-        `plt.pcolor(*result.get_free_energy(), cmap="RdBu_r", shading="auto")`
+        ``plt.pcolor(*result.get_free_energy(), cmap="RdBu_r", shading="auto")``
 
         The sequence of the return value allows a direct input to the pcolor function.
         '''

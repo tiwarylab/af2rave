@@ -42,6 +42,9 @@ templates_path = ['_templates']
 source_suffix = ['.rst', '.md']
 # source_suffix = '.rst'
 
+# class name
+add_module_names = False
+
 # The master toctree document.
 master_doc = 'index'
 

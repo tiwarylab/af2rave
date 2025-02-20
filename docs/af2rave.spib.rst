@@ -1,10 +1,7 @@
 af2rave.spib module
 ====================
 
-Submodules
-----------
-
-af2rave.spib.spib module
+af2rave.spib.SPIBProcess
 ------------------------
 
 .. automodule:: af2rave.spib.spib
@@ -12,7 +9,7 @@ af2rave.spib.spib module
    :undoc-members:
    :show-inheritance:
 
-af2rave.spib.spib\_result module
+af2rave.spib.SPIBResult
 --------------------------------
 
 .. automodule:: af2rave.spib.spib_result

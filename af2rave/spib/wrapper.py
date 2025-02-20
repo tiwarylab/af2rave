@@ -77,7 +77,6 @@ def spib(traj_data_list: list[torch.Tensor],
     test_future_data = torch.cat([dat[6] for dat in data_init_list], dim=0)
     test_data_labels = torch.cat([dat[7] for dat in data_init_list], dim=0)
 
-#        output_path = base_path + f"_d={RC_dim}_t={dt}_b={beta:.4f}_learn={learning_rate}"
     output_path = base_path + f"_dt_{dt}"
 
     IB = SPIB.SPIB(encoder_type, RC_dim, output_dim, data_shape, device,

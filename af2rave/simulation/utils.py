@@ -17,23 +17,16 @@ class TopologyMap:
     Create a mapping between the old and new topology.
 
     :param old_top: old topology, either a path or an OpenMM or MDTraj topology object
-    :type old_top: app.Topology or md.Topology or str
+    :type old_top: openmm.app.Topology or mdtraj.Topology or str
     :param new_top: new topology, either a path or an OpenMM or MDTraj topology object
-    :type new_top: app.Topology or md.Topology or str
+    :type new_top: openmm.app.Topology or mdtraj.Topology or str
+    :param resid_offset: 
+        Offset to be added to the residue id to align two topologies. Default is 0.
+        For example, if a residue in the old topology has resid 1 and 
+        in the new topology has resid 101, then resid_offset = 100.
     '''
 
     def __init__(self, old_top: TopologyLike, new_top: TopologyLike, resid_offset = 0):
-        '''
-        Create a mapping between the old and new topology.
-
-        :param old_top: old topology, either a path or an OpenMM or MDTraj topology object
-        :type old_top: app.Topology or md.Topology or str
-        :param new_top: new topology, either a path or an OpenMM or MDTraj topology object
-        :type new_top: app.Topology or md.Topology or str
-        :param resid_offset: offset to be added to the residue id to align two topologies. Default is 0.
-            For example, if a residue in the old topology has resid 1 and 
-            in the new topology has resid 101, then resid_offset = 100.
-        '''
 
         self._old_top = self._load_topology(old_top)
         self._new_top = self._load_topology(new_top)
@@ -44,7 +37,7 @@ class TopologyMap:
         Load the topology from a file or a topology object.
 
         :param top: topology, either a path or an OpenMM or MDTraj topology object
-        :type top: app.Topology or md.Topology or str
+        :type top: openmm.app.Topology or mdtraj.Topology or str
         '''
 
         if isinstance(top, str):
@@ -207,18 +200,12 @@ class SimulationBox:
         2. add hydrogen, at the given pH
         3. solvate the system with water, neutralize the system by adding ions
 
-        :param pH: float: pH of the system. Default is 7.0
-        :type pH: float
-        :param padding: padding around the protein. Default is 10. Unit: Angstrom.
-        :type padding: float
-        :param water_model: water model to be used. Default is 'tip3p'
-        :type water_model: str
-        :param positiveIon: positive ion used to neutralize the system. Default is 'Na+'
-        :type positiveIon: str
-        :param negativeIon: negative ion used to neutralize the system. Default is 'Cl-'
-        :type negativeIon: str
-        :param ionicStrength: ionic strength of the system. Default is 0.0. Unit: molar
-        :type ionicStrength: float
+        :param float pH: float: pH of the system. Default is 7.0
+        :param float padding: padding around the protein. Default is 10. Unit: Angstrom.
+        :param str water_model: water model to be used. Default is 'tip3p'
+        :param str positiveIon: positive ion used to neutralize the system. Default is 'Na+'.
+        :param str negativeIon: negative ion used to neutralize the system. Default is 'Cl-'
+        :param float ionicStrength: ionic strength of the system. Default is 0.0. Unit: molar
         """
 
         # create modeller instance
@@ -246,7 +233,8 @@ class SimulationBox:
                             neutralize=True,
                             positiveIon=self.positive_ion,
                             negativeIon=self.negative_ion,
-                            ionicStrength=self.ionic_strength)
+                            ionicStrength=self.ionic_strength
+        )
 
         self.top = modeller.topology
         self.pos = modeller.positions
@@ -261,9 +249,18 @@ class SimulationBox:
     def map_atom_index(self):
         '''
         Map atom index from input PDB to the output PDB file.
+        This is a callable property.
 
         After adding hydrogen, the atom index will be changed. This function
         translates the old atom index to the new atom index.
+
+        Example:
+
+        .. code-block:: python
+
+                box = SimulationBox(filename)
+                box.create_box()
+                box.map_atom_index(1)
 
         :param index: atom index or a list of atom indices
         :type index: AtomIndexLike: int or set[int] or list[int] or list[set[int]]
@@ -274,8 +271,7 @@ class SimulationBox:
         """
         Write the simulation box to a pdb file.
 
-        :param filename: path to the output pdb file
-        :type filename: str
+        :param str filename: path to the output pdb file
         """
         with open(filename, 'w') as f:
             app.PDBFile.writeFile(self.top, self.pos, f, keepIds=True)

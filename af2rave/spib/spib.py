@@ -15,15 +15,16 @@ from ..colvar import Colvar
 
 class SPIBProcess(object):
 
+    '''
+    This is the af2rave wrapper for SPIB.
+    To initialize, provide the list of Colvar files for SPIB to process.
+
+    :param traj: The list of trajectory files to process.
+    :type traj: str | list[str]
+    '''
+
     def __init__(self,
                  traj: str | list[str], **kwargs):
-        '''
-        Initialize an SPIB Process. Trajectories are the only input processed here.
-        Other training parameters should be provided in the run() method.
-
-        :param traj: The list of trajectory files to process.
-        :type traj: str | list[str]
-        '''
 
         self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         print(f"[af2rave.spib] Using device: {self._device}")
@@ -99,6 +100,14 @@ class SPIBProcess(object):
             self._traj_data_list[i] = (self._traj_data_list[i] - self._b) / self._k
 
     def run(self, time_lag: int, **kwargs):
+        '''
+        Run SPIB on the loaded data.
+
+        :param time_lag: The time lag for SPIB.
+        :type time_lag: int
+        :return: SPIBResult object.
+        :rtype: SPIBResult
+        '''
 
         basename = "tmp_" + hashlib.md5(str(time.time()).encode()).hexdigest()
         self._basename.append(basename)

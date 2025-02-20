@@ -12,25 +12,25 @@ If you choose to install the dependencies this way, ColabFold will be selected a
 First, make sure you have your ssh-key to GitHub correctly setup, or use the https link to clone the repository.
 Either ``conda`` or ``mamba`` (recommended) is required. The code schnippet uses conda but feel free to use mamba.
 
-.. code-block:: console
+.. code-block:: bash
 
-    $ git clone git@github.com:tiwarylab/af2rave.git af2rave
-    $ cd af2rave
-    $ conda env create -n af2rave -f environment.yml
-    $ conda activate af2rave 
+    git clone git@github.com:tiwarylab/af2rave.git af2rave
+    cd af2rave
+    conda env create -n af2rave -f environment.yml
+    conda activate af2rave 
 
 Then use ``pip`` to install the package.
 
-.. code-block:: console
+.. code-block:: bash
 
-    $ pip install .
+    pip install .
 
 If you want the folding module installed. You need to install ColabFold with ``conda`` and download its parameters.
 
-.. code-block:: console
+.. code-block:: bash
 
-    $ conda install colabfold
-    $ python -m colabfold.download
+    conda install colabfold
+    python -m colabfold.download
 
 Bibliography
 ----------------
