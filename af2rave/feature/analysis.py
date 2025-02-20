@@ -7,7 +7,6 @@ from natsort import natsorted
 import numpy as np
 import mdtraj as md
 from pathlib import Path
-from itertools import combinations
 
 from numpy.typing import NDArray
 from sklearn.decomposition import PCA
@@ -61,57 +60,42 @@ class FeatureSelection:
     @property
     def pdb_name(self) -> list[str]:
         '''
-        Return the list of pdb names.
-
-        :return: The list of pdb names.
-        :rtype: list[str]
+        The list of pdb names.
         '''
         return self._pdb_name
 
     @property
     def ref_pdb(self) -> str:
         '''
-        Return the reference pdb name.
-
-        :return: The reference pdb name.
-        :rtype: str
+        The reference pdb name.
         '''
         return self._ref_pdb
 
     @property
     def top(self) -> md.Topology:
         '''
-        Return the topology of the reference structure.
-
-        :return: The topology.
-        :rtype: md.Topology
+        The topology of the reference structure.
         '''
         return self._top
 
     @property
     def features(self) -> dict[str, NDArray[np.float_]]:
         '''
-        Return the features dictionary. The key is the feature name and the value is the feature array.
-
-        :return: The features.
-        :rtype: dict[str, np.ndarray[float]]
+        The features dictionary. The key is the feature name and the value is the feature array.
         '''
         return self._features
 
     @property
     def atom_pairs(self) -> dict[str, NDArray[np.int_]]:
         '''
-        Return the atom pairs dictionary. The key is the feature name and the value is the atom pairs.
-
-        :return: The atom pairs.
-        :rtype: dict[str, np.ndarray[int]]
+        The atom pairs dictionary. The key is the feature name and the value is the atom pairs.
         '''
         return self._atom_pairs
 
     @property
     def feature_array(self) -> NDArray[np.float_]:
         '''
-        Return the feature array, with each feature stacked column-wise.
+        The feature array, with each feature stacked column-wise.
 
         :return: The feature array.
         :rtype: np.ndarray[float]
@@ -120,26 +104,28 @@ class FeatureSelection:
 
     def __len__(self) -> int:
         '''
-        Return the number of structures in the trajectory.
-
-        :return: The number of structures.
-        :rtype: int
+        The number of structures in the trajectory.
         '''
         return len(self.pdb_name)
 
     # ===== Preprocessing =====
 
-    def _select_and_validate(self, selection: str, min_atoms: int | None = 1) -> NDArray[np.int_]:
+    def _select_and_validate(self, 
+                             selection: str, 
+                             min_atoms: int | None = 1) -> NDArray[np.int_]:
         """
         Select atoms from the trajectory and validate the selection
         to ensure it contains at least `min_atoms` atoms.
 
-        :param selection: The selection string.
-        :type selection: str
-        :param min_atoms: The minimum number of atoms required. Default: 1. Set to `None` to disable the check.
-        :type min_atoms: int, optional
+        :param str selection: 
+            The selection string.
+        :param int min_atoms: 
+            The minimum number of atoms required. 
+            Default: 1. 
+            Set to `None` to disable the check.
         :return: An array of atom indices.
-        :raises ValueError: If the selection is invalid or does not contain enough atoms.
+        :raises ValueError: 
+            If the selection is invalid or does not contain enough atoms.
         """
 
         try:
@@ -158,8 +144,9 @@ class FeatureSelection:
         Get the RMSD of the atoms in the selection for each frame in the trajectory.
         The reference structure is provided in the constructor.
 
-        :param selection: str: The selection string to use to select the atoms.
-        :return: dict: A dictionary of pdb names and their RMSD values. Units: Angstrom.
+        :param selection: str: 
+            The selection string to use to select the atoms.
+        :return: Dictionary of pdb names and their RMSD values. Units: Angstrom.
         :rtype: dict[str, float]
         '''
 
@@ -167,38 +154,46 @@ class FeatureSelection:
         rmsd = md.rmsd(self._traj, self._ref, atom_indices=sel) * 10
         return {pdb: r for pdb, r in zip(self._pdb_name, rmsd)}
 
-    def get_peptide_bondlengths(self) -> dict[str, NDArray[np.float_]]:
+    @property
+    def peptide_bond_stats(self) -> dict[str, NDArray[np.float_]]:
         '''
         Get the mean and standard deviation of the peptide bondlengths
-        per structure.
-
-        :return: dict: A dictionary of pdb names and their peptide
-        bondlength's mean and standard deviation values. Units: Angstrom.
-        :rtype: dict[str, NDArray[np.float_]]
+        per structure. A dictionary with the pdb names as keys.
         '''
-        sel_C = self._select_and_validate('protein and name C')
-        sel_N = self._select_and_validate('protein and name N')
-        dists = md.compute_distances(self._traj, atom_pairs=np.vstack((sel_N[1:], sel_C[:-1])).T) * 10  # Angstroms
 
-        return {pdb: r for pdb, r in zip(self._pdb_name, np.vstack((dists.mean(1), dists.std(1))).T)}
+        sel_C = self._select_and_validate('protein and name C')[1:]
+        sel_N = self._select_and_validate('protein and name N')[:-1]
+        dists = md.compute_distances(self._traj, 
+                                     atom_pairs=np.column_stack((sel_N, sel_C))
+                                     ) * 10  # Angstroms
+        mean = dists.mean(1)
+        std = dists.std(1)
 
-    def get_minimum_nonbonded_distances(self) -> dict[str, float]:
+        return {
+            pdb: r for pdb, r in 
+            zip(self._pdb_name, np.column_stack((mean, std)))
+        }
+
+    @property
+    def minimum_nonbonded_distance(self) -> dict[str, float]:
         '''
-        Get the minimum non-bonded distances in the structures
-        generated by AF2.
-
-        :return: dict: A dictionary of pdb names and their
-        minimum non-bonded heavy atom distances. Units: Angstrom.
-        :rtype: dict[str, float]
+        The minimum non-bonded distances in the structures
+        generated by AF2. A dictionary with the pdb names as keys.
         '''
+
+        from itertools import combinations
+
         num_atoms = self._traj.n_atoms
         all_pairs = list(combinations(range(num_atoms), 2))
 
-        bonded_pairs = [(bond[0].index, bond[1].index) for bond in self._traj.topology.bonds]
+        bonded_pairs = [(b[0].index, b[1].index) for b in self._top.bonds]
         bonded_set = set(bonded_pairs)
 
-        non_bonded_pairs = [pair for pair in all_pairs if pair not in bonded_set]
-        distances = md.compute_distances(self._traj, atom_pairs=non_bonded_pairs, periodic=False) * 10  # Angstroms
+        non_bonded_pairs = [p for p in all_pairs if p not in bonded_set]
+        distances = md.compute_distances(self._traj, 
+                                         atom_pairs=non_bonded_pairs, 
+                                         periodic=False
+                                         ) * 10  # Angstroms
         distances = distances.min(1)
 
         return {pdb: r for pdb, r in zip(self._pdb_name, distances)}
@@ -213,10 +208,11 @@ class FeatureSelection:
         larger than a cutoff (in Angstrom). This returns a list of pdb names.
         The filter can be subsequently applied by the apply_filter method.
 
-        :param rmsd_cutoff: The RMSD cutoff value. Default: 10.0 Angstrom
-        :type rmsd_cutoff: float
-        :param selection: The selection string to the atoms to calculate the RMSD. Default: "name CA"
-        :type selection: str
+        :param float rmsd_cutoff: 
+            The RMSD cutoff value. Default: 10.0 Angstrom
+        :param str selection: 
+            The selection string to the atoms to calculate the RMSD. 
+            Default: "name CA"
         :return: The pdb names of the selected structures
         :rtype: list[str]
         :raises ValueError: If no structures meet the cutoff criteria.
@@ -233,24 +229,30 @@ class FeatureSelection:
         Filter structures with a peptide bond cutoff.
 
         Some AlphaFold2 generated structures have unrealistic backbone structures,
-        often characterized with too long or too short peptide bonds. This method
-        filters out structures with peptide bonds that are too long or too short.
-        This method filters out structures based on the mean and standard deviation
-        of peptide bond lengths.
+        often characterized with too long or too short peptide bonds. 
+        The mean and standard deviation of the peptide bond lengths are calculated for each structure. 
+        If the mean is larger than the cutoff, or the standard deviation 
+        is larger than the cutoff, the structure will be filtered out.
 
-        :param mean_cutoff: Maximum allowed mean peptide bond length per structure. Default: 1.4 Angstrom
-        :type mean_cutoff: float
-        :param std_cutoff: Maximum allowed standard deviation of peptide bond length per structure. Default: 0.2 Angstrom
-        :type std_cutoff: float
+        :param float mean_cutoff: 
+            Maximum allowed mean peptide bond length per structure. 
+            Default: 1.4 Angstrom
+        :param float std_cutoff: 
+            Maximum allowed standard deviation of peptide bond length per structure. 
+            Default: 0.2 Angstrom
         :return: The pdb names of the selected structures
         :rtype: list[str]
         :raises ValueError: If no structures meet the cutoff criteria.
         '''
-        peptide_bondlengths = self.get_peptide_bondlengths()
-        mask = [k for k, v in peptide_bondlengths.items() if v[0] <= mean_cutoff and v[1] <= std_cutoff]
-        if len(mask) == 0:
-            raise ValueError(f"No structures are below the peptide bond cutoffs of mean={mean_cutoff} Angstrom and std={std_cutoff} Angstrom.")
 
+        mask = [k for k, (m, s) in self.peptide_bond_stats.items()
+                if m <= mean_cutoff and s <= std_cutoff
+                ]
+        if len(mask) == 0:
+            raise ValueError("No structures are below the peptide bond cutoffs of "
+                             f"mean={mean_cutoff} Angstrom and "
+                             f"std={std_cutoff} Angstrom."
+                             )
         return mask
 
     def steric_clash_filter(self, min_non_bonded_cutoff=1.0) -> list[str]:
@@ -262,17 +264,18 @@ class FeatureSelection:
         where non-bonded heavy atom distances are too short, leading
         to overlap in van der Waals radii.
 
-        :param min_non_bonded_cutoff: Minimum allowed non-bonded heavy atom distance. Default: 1.0 Angstrom
-        :type min_non_bonded_cutoff: float
+        :param float min_non_bonded_cutoff: 
+            Minimum allowed non-bonded heavy atom distance. 
+            Default: 1.0 Angstrom
         :return: The pdb names of the selected structures
         :rtype: list[str]
         :raises ValueError: If no structures meet the cutoff criteria.
         '''
-        min_non_bonded_dists = self.get_minimum_nonbonded_distances()
-        mask = [k for k, v in min_non_bonded_dists.items() if v >= min_non_bonded_cutoff]
+        min_nb_dists = self.minimum_nonbonded_distance
+        mask = [k for k, v in min_nb_dists.items() if v >= min_non_bonded_cutoff]
         if len(mask) == 0:
-            raise ValueError(f"No structures are above the dist cutoff of {min_non_bonded_cutoff} Angstrom.")
-
+            raise ValueError("No structures are above the dist cutoff of "
+                             f"{min_non_bonded_cutoff} Angstrom.")
         return mask
 
     def apply_filter(self, *args: list[str]) -> None:
@@ -282,13 +285,12 @@ class FeatureSelection:
         Multiple masks can be applied at once.
 
         Example:
-        ``` python3
-        fs.apply_filter(mask)
-        fs.apply_filter(mask1, mask2)
-        ```
+        .. code-block:: python
 
-        :param mask: The mask to apply.
-        :type mask: list[str]
+            fs.apply_filter(mask)
+            fs.apply_filter(mask1, mask2)
+
+        :param list[str] mask: The mask to apply.
         :raises ValueError: If the mask is invalid.
         '''
 
@@ -314,6 +316,7 @@ class FeatureSelection:
         - If `selection` is a tuple of two strings, it returns all pairs of atoms between the two selections.
 
         :param selection: A string representing a single selection or a tuple of two selection strings.
+        :type selection: str | tuple[str, str]
         :return: A NumPy array of atom pairs.
         :raises ValueError: If `selection` is not a string or a tuple of two strings.
         """
@@ -434,12 +437,18 @@ class FeatureSelection:
         """
         Performs regular space clustering on the selected dimensions of features.
 
-        :param feature_name: List of feature names to use for clustering.
-        :param min_dist: Minimum distance between cluster centers.
-        :param max_centers: Maximum number of cluster centers.
-        :param batch_size: Number of points to process in each batch.
-        :param randomseed: Random seed for the permutation.
+        :param list[str] feature_name: 
+            List of feature names to use for clustering.
+        :param float min_dist: 
+            Minimum distance between cluster centers. Unit: Angstrom.
+        :param int max_centers: 
+            Maximum number of cluster centers. Default: 100.
+        :param int batch_size: 
+            Number of points to process in each batch. Default: 100.
+        :param int randomseed: 
+            Random seed for the permutation.
         :return: A tuple containing:
+
             - center (np.ndarray): Cluster center coordinates.
             - center_id (np.ndarray): Indices of the cluster centers.
         :raises ValueError: If `max_centers` is exceeded.
