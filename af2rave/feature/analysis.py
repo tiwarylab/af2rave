@@ -107,6 +107,13 @@ class FeatureSelection:
         The number of structures in the trajectory.
         '''
         return len(self.pdb_name)
+    
+    def __getitem__(self, key):
+        try:
+            idx = self._pdb_name.index(key)
+        except ValueError:
+            raise KeyError(f"Structure '{key}' not found in the trajectory.")
+        return self._traj[idx]
 
     # ===== Preprocessing =====
 
@@ -164,8 +171,8 @@ class FeatureSelection:
         atom_pairs = []
         for c in self.top.chains:
             chainid = c.index
-            sel_C = self._select_and_validate(f'protein and chainid {chainid} and name C')[:-1]
-            sel_N = self._select_and_validate(f'protein and chainid {chainid} and name N')[1:]
+            sel_C = self._select_and_validate(f'protein and chainid {chainid} and name C', 2)[:-1]
+            sel_N = self._select_and_validate(f'protein and chainid {chainid} and name N', 2)[1:]
             atom_pairs.append(np.column_stack((sel_N, sel_C)))
         atom_pairs = np.vstack(atom_pairs)
 
@@ -186,22 +193,31 @@ class FeatureSelection:
         '''
 
         from itertools import combinations
+        def get_batches(input_list, batch_size):
+            input_list = input_list[:]
+            for i in range(0, len(input_list), batch_size):
+                yield input_list[i:i + batch_size]
 
-        traj_noH = self._traj.atom_slice(self._select_and_validate('not element H'))
-        num_atoms = traj_noH.n_atoms
-        all_pairs = list(combinations(range(num_atoms), 2))
+        traj_noH = self._select_and_validate('not element H')
+        pairs = set(combinations(traj_noH, 2))
 
-        bonded_pairs = [(b[0].index, b[1].index) for b in traj_noH.top.bonds]
-        bonded_set = set(bonded_pairs)
+        bonded_pairs = {(b[0].index, b[1].index) for b in self._top.bonds}
+        pairs.difference_update(bonded_pairs)
 
-        non_bonded_pairs = [p for p in all_pairs if p not in bonded_set]
-        distances = md.compute_distances(traj_noH,
-                                         atom_pairs=non_bonded_pairs,
-                                         periodic=False
-                                         ) * 10  # Angstroms
-        distances = distances.min(1)
+        nb_pairs = list(pairs)
+        min_dist = None
+        # Compute distances in batches, to avoid memory issues
+        for batch in get_batches(nb_pairs, 100000):
+            distance = md.compute_distances(self._traj,
+                                            atom_pairs=batch,
+                                            periodic=False
+                                            ) * 10  # Angstroms
+            if min_dist is not None:
+                min_dist = np.minimum(min_dist, distance.min(1))
+            else:
+                min_dist = distance.min(1)
 
-        return {pdb: r for pdb, r in zip(self._pdb_name, distances)}
+        return {pdb: r for pdb, r in zip(self._pdb_name, min_dist)}
 
     # ===== Filtering =====
 
