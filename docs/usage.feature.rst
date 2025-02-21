@@ -4,7 +4,7 @@ Feature selection module
 This module uses a set of PDB structures for the given protein to select the most relevant features.
 
 
-The analysis usually starts with intializing a :class:`af2rave.feature.FeatureSelection` object. 
+The analysis usually starts with intializing a :py:class:`~af2rave.feature.analysis.FeatureSelection` object. 
 The object takes arguments of either a directory, a list of PDB files, or a combination of those.
 An option ``ref_pdb`` can be used to specify a reference PDB file to align the structures to. 
 If none is provided, the first PDB file in the list will be used as the reference.
@@ -15,11 +15,14 @@ If a directory name is provided, a natural sort is performed to the filenames in
     import af2rave.feature
     fs = af2rave.feature.FeatureSelection("path/to/pdb/files")
 
-The second step is to apply filters. The set of implemented filters currently includes two chemistry-based filters and one RMSD filter. Under chemistry-based filters, the method ``peptide_bond_filter()`` ensures that the residues in a single chain follow peptide bond lengths, and the method ``steric_clash_filter()`` filters out the structures that contain steric clashes between a non-bonded pair of heavy atoms. On the other hand, the ``rmsd_filter()`` method handles misfolded and other biophysically non-relevant conformations.
+The second step is to apply filters. 
+The set of implemented filters currently includes two chemistry-based filters and one RMSD filter. 
+Under chemistry-based filters, the method :py:meth:`~af2rave.feature.analysis.FeatureSelection.peptide_bond_filter` ensures that the residues in a single chain follow peptide bond lengths, and the method :py:meth:`~af2rave.feature.analysis.FeatureSelection.steric_clash_filter` filters out the structures that contain steric clashes between a non-bonded pair of heavy atoms. 
+On the other hand, the :py:func:`~af2rave.feature.analysis.FeatureSelection.rmsd_filter` method handles misfolded and other biophysically non-relevant conformations.
 All the filter methods will return a mask, which is a list of pdb names, that will remain in the selection.
 The users are welcome to implement their own filters and intersect the masks.
 
-Then ``apply_filter`` will remove all the structures that are not in the mask.
+Then :py:func:`~af2rave.feature.analysis.FeatureSelection.apply_filter` will remove all the structures that are not in the mask.
 
 .. code-block:: python3
 
@@ -43,7 +46,7 @@ Then ``apply_filter`` will remove all the structures that are not in the mask.
     The last two filters will ensure ``chainid 0`` and ``chainid 1 2`` are both folded, 
     but allow them to adapt to different relative positions.
 
-Method ``get_rmsd()`` will return a dictionary of RMSD values between the reference structure and all other structures.
+Method :py:meth:`~af2rave.feature.analysis.FeatureSelection.get_rmsd` will return a dictionary of RMSD values between the reference structure and all other structures.
 
 .. code-block:: python3
 
