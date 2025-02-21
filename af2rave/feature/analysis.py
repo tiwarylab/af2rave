@@ -160,16 +160,16 @@ class FeatureSelection:
         Get the mean and standard deviation of the peptide bondlengths
         per structure. A dictionary with the pdb names as keys.
         '''
-        distances_per_chain = []
-        for chainid in range(self._traj.n_chains):
+
+        atom_pairs = []
+        for c in self.top.chains:
+            chainid = c.index
             sel_C = self._select_and_validate(f'protein and chainid {chainid} and name C')[:-1]
             sel_N = self._select_and_validate(f'protein and chainid {chainid} and name N')[1:]
+            atom_pairs.append(np.column_stack((sel_N, sel_C)))
+        atom_pairs = np.vstack(atom_pairs)
 
-            distances_per_chain.append(md.compute_distances(self._traj,
-                                                            atom_pairs=np.column_stack((sel_N, sel_C))
-                                                            ) * 10)  # Angstroms
-
-        distances = np.column_stack(distances_per_chain)
+        distances = md.compute_distances(self._traj, atom_pairs=atom_pairs) * 10  # Angstrom
         mean = distances.mean(1)
         std = distances.std(1)
 
