@@ -15,8 +15,8 @@ If a directory name is provided, a natural sort is performed to the filenames in
     import af2rave.feature
     fs = af2rave.feature.FeatureSelection("path/to/pdb/files")
 
-The second step is to apply filters. Currently, the only implemented filter is the RMSD filter.
-The method ``rmsd_filter()`` will return a mask, which is a list of pdb names, that will remain in the selection.
+The second step is to apply filters. The set of implemented filters currently includes two chemistry-based filters and one RMSD filter. Under chemistry-based filters, the method ``peptide_bond_filter()`` ensures that the residues in a single chain follow peptide bond lengths, and the method ``steric_clash_filter()`` filters out the structures that contain steric clashes between a non-bonded pair of heavy atoms. On the other hand, the ``rmsd_filter()`` method handles misfolded and other biophysically non-relevant conformations.
+All the filter methods will return a mask, which is a list of pdb names, that will remain in the selection.
 The users are welcome to implement their own filters and intersect the masks.
 
 Then ``apply_filter`` will remove all the structures that are not in the mask.
@@ -32,11 +32,15 @@ Then ``apply_filter`` will remove all the structures that are not in the mask.
 
     .. code-block:: python3
 
-        mask_antigen = fs.rmsd_filter(selection="name CA and chainid 0", rmsd_cutoff=3)
+	mask_peptide_bonds = fs.peptide_bond_filter(mean_cutoff=1.4,std_cutoff=0.2)
+        mask_steric_clash = fs.steric_clash_filter(min_non_bonded_cutoff=1.0)
+	mask_antigen = fs.rmsd_filter(selection="name CA and chainid 0", rmsd_cutoff=3)
         mask_antibody = fs.rmsd_filter(selection="name CA and chainid 1 2", rmsd_cutoff=6)
-        fs.apply_filter(mask_antibody, mask_antigen)
+
+        fs.apply_filter(mask_peptide_bonds,mask_steric_clash,mask_antibody, mask_antigen)
     
-    This two filters will ensure ``chainid 0`` and ``chain id 1 2`` are both folded, 
+    The first two filters will ensure the chemistry of the generated structures.
+    The last two filters will ensure ``chainid 0`` and ``chainid 1 2`` are both folded, 
     but allow them to adapt to different relative positions.
 
 Method ``get_rmsd()`` will return a dictionary of RMSD values between the reference structure and all other structures.
