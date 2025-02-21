@@ -110,21 +110,21 @@ class FeatureSelection:
 
     # ===== Preprocessing =====
 
-    def _select_and_validate(self, 
-                             selection: str, 
+    def _select_and_validate(self,
+                             selection: str,
                              min_atoms: int | None = 1) -> NDArray[np.int_]:
         """
         Select atoms from the trajectory and validate the selection
         to ensure it contains at least `min_atoms` atoms.
 
-        :param str selection: 
+        :param str selection:
             The selection string.
-        :param int min_atoms: 
-            The minimum number of atoms required. 
-            Default: 1. 
+        :param int min_atoms:
+            The minimum number of atoms required.
+            Default: 1.
             Set to `None` to disable the check.
         :return: An array of atom indices.
-        :raises ValueError: 
+        :raises ValueError:
             If the selection is invalid or does not contain enough atoms.
         """
 
@@ -144,7 +144,7 @@ class FeatureSelection:
         Get the RMSD of the atoms in the selection for each frame in the trajectory.
         The reference structure is provided in the constructor.
 
-        :param selection: str: 
+        :param selection: str:
             The selection string to use to select the atoms.
         :return: Dictionary of pdb names and their RMSD values. Units: Angstrom.
         :rtype: dict[str, float]
@@ -160,17 +160,21 @@ class FeatureSelection:
         Get the mean and standard deviation of the peptide bondlengths
         per structure. A dictionary with the pdb names as keys.
         '''
+        distances_per_chain = []
+        for chainid in range(self._traj.n_chains):
+            sel_C = self._select_and_validate(f'protein and chainid {chainid} and name C')[:-1]
+            sel_N = self._select_and_validate(f'protein and chainid {chainid} and name N')[1:]
 
-        sel_C = self._select_and_validate('protein and name C')[1:]
-        sel_N = self._select_and_validate('protein and name N')[:-1]
-        dists = md.compute_distances(self._traj, 
-                                     atom_pairs=np.column_stack((sel_N, sel_C))
-                                     ) * 10  # Angstroms
-        mean = dists.mean(1)
-        std = dists.std(1)
+            distances_per_chain.append(md.compute_distances(self._traj,
+                                                            atom_pairs=np.column_stack((sel_N, sel_C))
+                                                            ) * 10)  # Angstroms
+
+        distances = np.column_stack(distances_per_chain)
+        mean = distances.mean(1)
+        std = distances.std(1)
 
         return {
-            pdb: r for pdb, r in 
+            pdb: r for pdb, r in
             zip(self._pdb_name, np.column_stack((mean, std)))
         }
 
@@ -183,15 +187,16 @@ class FeatureSelection:
 
         from itertools import combinations
 
-        num_atoms = self._traj.n_atoms
+        traj_noH = self._traj.atom_slice(self._select_and_validate('not element H'))
+        num_atoms = traj_noH.n_atoms
         all_pairs = list(combinations(range(num_atoms), 2))
 
-        bonded_pairs = [(b[0].index, b[1].index) for b in self._top.bonds]
+        bonded_pairs = [(b[0].index, b[1].index) for b in traj_noH.top.bonds]
         bonded_set = set(bonded_pairs)
 
         non_bonded_pairs = [p for p in all_pairs if p not in bonded_set]
-        distances = md.compute_distances(self._traj, 
-                                         atom_pairs=non_bonded_pairs, 
+        distances = md.compute_distances(traj_noH,
+                                         atom_pairs=non_bonded_pairs,
                                          periodic=False
                                          ) * 10  # Angstroms
         distances = distances.min(1)
@@ -208,10 +213,10 @@ class FeatureSelection:
         larger than a cutoff (in Angstrom). This returns a list of pdb names.
         The filter can be subsequently applied by the apply_filter method.
 
-        :param float rmsd_cutoff: 
+        :param float rmsd_cutoff:
             The RMSD cutoff value. Default: 10.0 Angstrom
-        :param str selection: 
-            The selection string to the atoms to calculate the RMSD. 
+        :param str selection:
+            The selection string to the atoms to calculate the RMSD.
             Default: "name CA"
         :return: The pdb names of the selected structures
         :rtype: list[str]
@@ -229,16 +234,16 @@ class FeatureSelection:
         Filter structures with a peptide bond cutoff.
 
         Some AlphaFold2 generated structures have unrealistic backbone structures,
-        often characterized with too long or too short peptide bonds. 
-        The mean and standard deviation of the peptide bond lengths are calculated for each structure. 
-        If the mean is larger than the cutoff, or the standard deviation 
+        often characterized with too long or too short peptide bonds.
+        The mean and standard deviation of the peptide bond lengths are calculated for each structure.
+        If the mean is larger than the cutoff, or the standard deviation
         is larger than the cutoff, the structure will be filtered out.
 
-        :param float mean_cutoff: 
-            Maximum allowed mean peptide bond length per structure. 
+        :param float mean_cutoff:
+            Maximum allowed mean peptide bond length per structure.
             Default: 1.4 Angstrom
-        :param float std_cutoff: 
-            Maximum allowed standard deviation of peptide bond length per structure. 
+        :param float std_cutoff:
+            Maximum allowed standard deviation of peptide bond length per structure.
             Default: 0.2 Angstrom
         :return: The pdb names of the selected structures
         :rtype: list[str]
@@ -264,8 +269,8 @@ class FeatureSelection:
         where non-bonded heavy atom distances are too short, leading
         to overlap in van der Waals radii.
 
-        :param float min_non_bonded_cutoff: 
-            Minimum allowed non-bonded heavy atom distance. 
+        :param float min_non_bonded_cutoff:
+            Minimum allowed non-bonded heavy atom distance.
             Default: 1.0 Angstrom
         :return: The pdb names of the selected structures
         :rtype: list[str]
@@ -338,18 +343,18 @@ class FeatureSelection:
                      selection: str | tuple[str, str] | list[str | tuple[str, str]] = "name CA"
                      ) -> tuple[list[str], NDArray[np.float_]]:
         """
-        Rank the features by the coefficient of variation (CV). 
+        Rank the features by the coefficient of variation (CV).
         The argument ``selection`` can be:
 
-            - A `string`: 
+            - A `string`:
                 Computes all pairs of atoms within the selection.
-            - A `tuple` of two strings: 
+            - A `tuple` of two strings:
                 Computes all pairs of atoms between the two selections.
-            - A `list` of strings or tuples: 
+            - A `list` of strings or tuples:
                 Computes atom pairs for each selection in the list.
 
         :param selection: The selection string(s) used to determine atom pairs.
-        :return: 
+        :return:
             - names: A list of feature names.
             - cv: A NumPy array containing the coefficient of variation values.
         :raises ValueError: If `selection` is not a valid type.
@@ -370,7 +375,7 @@ class FeatureSelection:
         pw_dist = md.compute_distances(self.traj, atom_pairs, periodic=False) * 10
 
         # Generate feature names
-        names = [f"{representation(self._top, i)}-{representation(self._top, j)}" 
+        names = [f"{representation(self._top, i)}-{representation(self._top, j)}"
                  for i, j in atom_pairs
                  ]
 
@@ -384,7 +389,7 @@ class FeatureSelection:
         std_dist = np.std(pw_dist, axis=0)
 
         # Handle division errors safely
-        with np.errstate(divide='ignore', invalid='ignore'):  
+        with np.errstate(divide='ignore', invalid='ignore'):
             cv = np.where(mean_dist != 0, std_dist / mean_dist, np.nan)
 
         # Rank features by CV in descending order
@@ -444,15 +449,15 @@ class FeatureSelection:
         """
         Performs regular space clustering on the selected dimensions of features.
 
-        :param list[str] feature_name: 
+        :param list[str] feature_name:
             List of feature names to use for clustering.
-        :param float min_dist: 
+        :param float min_dist:
             Minimum distance between cluster centers. Unit: Angstrom.
-        :param int max_centers: 
+        :param int max_centers:
             Maximum number of cluster centers. Default: 100.
-        :param int batch_size: 
+        :param int batch_size:
             Number of points to process in each batch. Default: 100.
-        :param int randomseed: 
+        :param int randomseed:
             Random seed for the permutation.
         :return: A tuple containing:
 
