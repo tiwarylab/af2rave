@@ -3,12 +3,5 @@ channels:
   - bioconda
 dependencies:
   - python==3.11
-  - pytorch::pytorch
   - openmm>=8
-  - pdbfixer
-  - mdtraj
-  - numpy<2
-  - scikit-learn
   - typer
-  - numba
-  - natsort

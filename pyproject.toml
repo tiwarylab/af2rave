@@ -22,7 +22,15 @@ classifiers = [
 license = {text = "MIT license"}
 requires-python = ">= 3.10"
 dependencies = [
-  "natsort"
+  "natsort",
+  "mdtraj",
+  "numpy<2",
+  "openmm[cuda12]",
+  "pdbfixer @ git+https://github.com/openmm/pdbfixer.git",
+  "torch",
+  "scikit-learn",
+  "openmm",
+  "typer"
 ]
 
 [project.optional-dependencies]
