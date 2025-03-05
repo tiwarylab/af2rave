@@ -5,27 +5,14 @@ Overview
 Installation
 ----------------
 
-It is strongly recommended a separate environment for this package. 
-The ``environment.yml`` will take care of most of the dependencies.
-If you choose to install the dependencies this way, ColabFold will be selected as the default AlphaFold2 model.
-
-First, make sure you have your ssh-key to GitHub correctly setup, or use the https link to clone the repository.
-Either ``conda`` or ``mamba`` (recommended) is required. The code schnippet uses conda but feel free to use mamba.
+It is strongly recommended a separate environment for this package, either with ``conda`` or ``venv``. 
+After activating the environment, simply run:
 
 .. code-block:: bash
 
-    git clone git@github.com:tiwarylab/af2rave.git af2rave
-    cd af2rave
-    conda env create -n af2rave -f environment.yml
-    conda activate af2rave 
+    pip install git+https://github.com/tiwarylab/af2rave.git
 
-Then use ``pip`` to install the package.
-
-.. code-block:: bash
-
-    pip install .
-
-If you want the folding module installed. You need to install ColabFold with ``conda`` and download its parameters.
+If you want the folding module installed, too. You need to install ColabFold separately. One way to do it is with ``conda`` and download its parameters.
 
 .. code-block:: bash
 
