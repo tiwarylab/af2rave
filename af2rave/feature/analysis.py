@@ -317,6 +317,10 @@ class FeatureSelection:
 
         mask = natsorted(set.intersection(*map(set, args)))
 
+        # Check if the intersection is empty
+        if len(mask) == 0:
+            raise ValueError("No structures are selected by the filter.")
+
         # Check if the mask is valid
         exist = [m in self.pdb_name for m in mask]
         if not all(exist):
