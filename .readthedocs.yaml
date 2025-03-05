@@ -11,7 +11,11 @@ build:
   jobs:
     post_create_environment:
       - pip install sphinx_rtd_theme
-  
+
+python:
+  install:
+    - path: .
+
 sphinx:
   builder: html
   configuration: docs/conf.py
