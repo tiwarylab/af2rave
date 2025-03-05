@@ -34,12 +34,24 @@ class CVReporter(object):
 
         self._out = open(file, 'a' if append else 'w')
         self._reportInterval = reportInterval
-        self.list_of_cv = list_of_indexes
-        self.n_cv = len(list_of_indexes)
-        assert self.n_cv > 0, "No CVs added."
 
-        self.buffer = np.zeros(self.n_cv)
-        self.format = "{} " + "{:.4f} " * self.n_cv + "\n"
+        # Book keeping
+        self.list_of_cv = np.asarray(list_of_indexes)
+        self._atom_idx = self.list_of_cv.flatten()
+        self._n_cv = len(list_of_indexes)
+        self._n_atom = 2 * self._n_cv
+        if not self._n_cv > 0:
+            raise ValueError("No CVs added.")
+        if self.list_of_cv.shape[1] != 2:
+            raise ValueError("Each CV must be a pair of indexes.")
+
+        # This is the part used to monitor big coordinate jumps
+        self._x_t0 = np.zeros((self._n_atom, 3), dtype=float)
+        self._images = np.zeros((self._n_atom, 3), dtype=int)
+        self._started = False
+
+        self._buffer = np.zeros(self._n_cv)
+        self._format = "{} " + "{:.4f} " * self._n_cv + "\n"
         if not append:
             self._out.write("#! FIELD time " +
                             " ".join([f"dist_{i}_{j}" for i, j in self.list_of_cv]) +
@@ -54,17 +66,49 @@ class CVReporter(object):
         OpenMM reporter method to describe the next report.
         '''
         steps = self._reportInterval - simulation.currentStep % self._reportInterval
-        return (steps, True, False, False, False, False)
+        if not self._started:
+            # I am not sure if this is the most robust way to do this.
+            # It is uncertain if the first alignment happens at which stage of step 0.
+            # But it works for now.
+            self._started = True
+            state = simulation.context.getState(getPositions=True)
+            coord = state.getPositions(asNumpy=True).value_in_unit(angstroms)
+            self._x_t0[:] = np.array([coord[k] for k in self._atom_idx], dtype=float)
+            return (1, True, False, False, False, False)
+        else:
+            return (steps, True, False, False, False, False)
+        # for openmm >= 8.2.0
+        # return {
+        #     'steps': steps, 
+        #     'periodic': None, 
+        #     'include':['positions']
+        # }
 
     def report(self, simulation, state):
         '''
         OpenMM reporter method to report the current state.
         '''
+
         step = simulation.currentStep
-        coord = state.getPositions(asNumpy=True)
-        for i, (a, b) in enumerate(self.list_of_cv):
-            self.buffer[i] = np.linalg.norm((coord[a] - coord[b]).value_in_unit(angstroms))
-        self._out.write(self.format.format(step, *self.buffer))
+        coord = state.getPositions(asNumpy=True).value_in_unit(angstroms)
+        box = np.diag(state.getPeriodicBoxVectors().value_in_unit(angstroms))
+
+        x_t = np.array([coord[k] for k in self._atom_idx], dtype=float)
+        if self._started:
+            self._images += np.rint((x_t - self._x_t0) / box).astype(int)  
+        else:
+            self._started = True
+
+        # Store old value and compute new, imaged coordinates
+        self._x_t0 = x_t.copy()
+        x_t -= self._images * box
+
+        # Compute the distances and write files
+        self._buffer[:] = np.linalg.norm(
+            np.array([x_t[a] - x_t[b] for a, b in np.arange(self._n_atom).reshape(-1, 2)]), 
+            axis=1
+        )
+        self._out.write(self._format.format(step, *self._buffer))
 
 
 if openmm.version.short_version >= '8.1.0':
