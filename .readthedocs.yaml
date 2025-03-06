@@ -4,18 +4,18 @@
 # Required
 version: 2
 
-conda:
-  environment: environment.yml
-
 build:
   os: ubuntu-24.04
   tools:
-    python: "mambaforge-latest"
+    python: "3.12"
   jobs:
     post_create_environment:
-      - echo "Preparing environment"
       - pip install sphinx_rtd_theme
-  
+
+python:
+  install:
+    - path: .
+
 sphinx:
   builder: html
   configuration: docs/conf.py
