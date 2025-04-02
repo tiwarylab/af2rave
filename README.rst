@@ -25,12 +25,18 @@ After activating the environment, simply run:
 
     pip install git+https://github.com/tiwarylab/af2rave.git
 
-If you want the folding module installed, too. You need to install ColabFold separately. One way to do it is with ``conda`` and download its parameters.
+This should take ~5 min depending on internet and computer. If you want the folding module installed, too. You need to install ColabFold separately. One way to do it is with ``conda`` and download its parameters.
 
 .. code-block:: bash
 
     conda install colabfold
     python -m colabfold.download
+
+Demo
+----------------
+A demonstration is available in the notebook folder. To run it in Google Colab, simply open the notebook, and replace ``github.com`` with ``githubtocolab.com``. 
+You can generate your own structures with Colab, or upload the structures of DDR1 we generated in ``datasets/DDR1`` to the notebook.
+The notebook should give cluster centers in ~2 mins without structure generation or ~40 mins with AlphaFold2 part.
 
 Bibliography
 ----------------
