@@ -63,15 +63,14 @@ class MetadynamicsSimulation(UnbiasedSimulation):
             self._dim = 2
             self._grid_edges = np.array([[self._grid_min[0], self._grid_max[0]],
                                          [self._grid_min[1], self._grid_max[1]]])
-        
+
         # openmm metadynamics params
         self._bias_factor = kwargs.get('bias_factor', 10.0)
         self._gauss_height = kwargs.get('height', 1.5*kilojoules_per_mole)
-        # bias
         self._biasDir = kwargs.get('bias_directory', "bias/")
 #        self._rbiasDir = self._biasDir
-
         self.metadynamics = self._metad()
+        
 
     def run(self, steps: int = 50000000):
         '''

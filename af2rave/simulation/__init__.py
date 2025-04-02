@@ -13,7 +13,7 @@ if os.path.exists(_charmm36FF):
 else:
     Charmm36mFF = None
 
-from .reporter import CVReporter, MinimizationReporter
+from .reporter import CVReporter
 from .simulation import UnbiasedSimulation
 from .metadynamics import MetadynamicsSimulation
 from .utils import *
@@ -23,7 +23,6 @@ __all__ = [
     'MetadynamicsSimulation',
     'CVReporter',
     'Charmm36mFF',
-    'MinimizationReporter',
     'TopologyMap',
     'SimulationBox'
 ]
