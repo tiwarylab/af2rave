@@ -277,13 +277,11 @@ class UnbiasedSimulation():
         if "cv_reporter" in kwargs:
             return kwargs["cv_reporter"]
 
-        list_of_index = self._list_of_index
-
-        if list_of_index is not None:
+        if self._list_of_index is not None:
             cv_file = kwargs.get('cv_file', self._prefix + "_colvar.dat")
             cv_freq = kwargs.get('cv_freq', 50)
             append = kwargs.get('append', False)
-            return CVReporter(cv_file, cv_freq, list_of_index, append)
+            return CVReporter(cv_file, cv_freq, self._list_of_index, append)
 
         print("No atom indices provided. Will not output CV timeseries.")
         return None
