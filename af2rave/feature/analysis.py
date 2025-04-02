@@ -8,6 +8,8 @@ import numpy as np
 import mdtraj as md
 from pathlib import Path
 
+from .utils import *
+
 from numpy.typing import NDArray
 from sklearn.decomposition import PCA
 
@@ -79,7 +81,7 @@ class FeatureSelection:
         return self._top
 
     @property
-    def features(self) -> dict[str, NDArray[np.float_]]:
+    def features(self) -> dict[str, NDArray[np.float64]]:
         '''
         The features dictionary. The key is the feature name and the value is the feature array.
         '''
@@ -93,7 +95,7 @@ class FeatureSelection:
         return self._atom_pairs
 
     @property
-    def feature_array(self) -> NDArray[np.float_]:
+    def feature_array(self) -> NDArray[np.float64]:
         '''
         The feature array, with each feature stacked column-wise.
 
@@ -162,7 +164,7 @@ class FeatureSelection:
         return {pdb: r for pdb, r in zip(self._pdb_name, rmsd)}
 
     @property
-    def peptide_bond_stats(self) -> dict[str, NDArray[np.float_]]:
+    def peptide_bond_stats(self) -> dict[str, NDArray[np.float64]]:
         '''
         Get the mean and standard deviation of the peptide bondlengths
         per structure. A dictionary with the pdb names as keys.
@@ -361,7 +363,7 @@ class FeatureSelection:
 
     def rank_feature(self,
                      selection: str | tuple[str, str] | list[str | tuple[str, str]] = "name CA"
-                     ) -> tuple[list[str], NDArray[np.float_]]:
+                     ) -> tuple[list[str], NDArray[np.float64]]:
         """
         Rank the features by the coefficient of variation (CV).
         The argument ``selection`` can be:
@@ -379,8 +381,6 @@ class FeatureSelection:
             - cv: A NumPy array containing the coefficient of variation values.
         :raises ValueError: If `selection` is not a valid type.
         """
-
-        from .utils import representation
 
         if isinstance(selection, (str, tuple)):
             atom_pairs = self._get_atom_pairs(selection)
@@ -432,8 +432,6 @@ class FeatureSelection:
         :raises ValueError: If `feature_name` is None or contains invalid names.
         """
 
-        from .utils import chimera_representation, resid
-
         plotscript_lines = set()
 
         for fn in feature_name:
@@ -465,7 +463,7 @@ class FeatureSelection:
                                  min_dist: float,
                                  max_centers: int = 100,
                                  batch_size: int = 100,
-                                 randomseed: int = 0) -> tuple[NDArray[np.float_], NDArray[np.int_]]:
+                                 randomseed: int = 0) -> tuple[NDArray[np.float64], NDArray[np.int_]]:
         """
         Performs regular space clustering on the selected dimensions of features.
 
@@ -490,7 +488,7 @@ class FeatureSelection:
             raise ValueError("Feature list cannot be empty.")
 
         # Extract feature time series and transpose to shape (npoints, nfeatures)
-        z = np.array([self._features[fn] for fn in feature_name], dtype=np.float_).T
+        z = np.array([self._features[fn] for fn in feature_name], dtype=np.float64).T
         npoints, ndim = z.shape
 
         # Determine the reference index
@@ -535,7 +533,7 @@ class FeatureSelection:
 
         return center_id
 
-    def pca(self, n_components: int = 2, **kwargs) -> tuple[PCA, NDArray[np.float_]]:
+    def pca(self, n_components: int = 2, **kwargs) -> tuple[PCA, NDArray[np.float64]]:
         """
         Perform Principal Component Analysis (PCA) on the selected features.
 
@@ -549,7 +547,7 @@ class FeatureSelection:
             raise ValueError("No features available for PCA.")
 
         # Extract time series data from features
-        z = np.array([self._features[fn] for fn in self.features], dtype=np.float_).T
+        z = np.array([self._features[fn] for fn in self.features], dtype=np.float64).T
 
         # Ensure there are enough features to compute the requested components
         if z.shape[1] < n_components:
