@@ -34,6 +34,10 @@ class TestInit:
         fs_files = feature.FeatureSelection(pdb_files)
         for i in fs_dir.pdb_name:
             assert i in fs_files.pdb_name
+        
+    def test_init_with_non_existent_dir(self):
+        with pytest.raises(FileNotFoundError):
+            feature.FeatureSelection("non_existent_dir")
 
 
 class TestProperties:

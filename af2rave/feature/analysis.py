@@ -26,6 +26,8 @@ class FeatureSelection:
     def __init__(self, pdb_name: str | list[str], ref_pdb: str | None = None) -> None:
         if isinstance(pdb_name, str):
             p = Path(pdb_name)
+            if not p.exists():
+                raise FileNotFoundError(f"Path '{pdb_name}' does not exist")
             self._pdb_name = (
                 natsorted(glob.glob(f"{p}/*.pdb")) if p.is_dir() else [pdb_name]
             )
