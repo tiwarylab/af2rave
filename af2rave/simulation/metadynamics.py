@@ -2,6 +2,7 @@
 The MetadynamicsSimulation class for running metaD simulations.
 '''
 from . import UnbiasedSimulation
+from .reporter import MinimizationReporter
 
 import numpy as np
 import af2rave.spib as af2spib
@@ -10,7 +11,6 @@ import openmm
 import openmm.app as app
 from openmm.unit import kilojoules_per_mole
 
-from .reporter import MinimizationReporter
 
 class MetadynamicsSimulation(UnbiasedSimulation):
     '''
@@ -43,14 +43,14 @@ class MetadynamicsSimulation(UnbiasedSimulation):
         super().__init__(pdb_file, **kwargs)
         
         self._spib_result = af2spib.SPIBResult.from_file(spib_file)
-        self._spib_weights = self._spib_result.apparent_weight
+        self._spib_weights = self._spib_result.apparent_weight*10
         self._spib_bias = self._spib_result.apparent_bias       #unused
         
         self._gauss_sigma = kwargs.get('sigma', 1.5)
         self._gauss_width = kwargs.get('width', 1.0)
         self._gamma = kwargs.get('gamma_factor', 1/20)
 
-        self._grid = kwargs.get('grid_bins', 150)
+        self._grid = kwargs.get('grid_bins', 100)
         self._grid_min = kwargs.get('grid_min')
         self._grid_max = kwargs.get('grid_max')
 
