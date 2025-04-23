@@ -18,33 +18,55 @@ class FeatureSelection:
     """
     Reads an ensemble of PDB files and performs feature selection.
 
-    :param pdb_name: The name(s) of the PDB file from reduced MSA.
+    :param input: The name(s) of the PDB file from reduced MSA.
+                    If a directory is provided, all PDB files in the directory will be loaded.
+                    If a list of PDB files is provided, all files will be loaded.
+                    It can also load trajectories files as long as it can be loaded by MDTraj.   
     :param ref_pdb: The name of the reference structure. If none is provided,
                     the first frame of the input PDB file will be used as the reference.
     """
 
-    def __init__(self, pdb_name: str | list[str], ref_pdb: str | None = None) -> None:
-        if isinstance(pdb_name, str):
-            p = Path(pdb_name)
+    def __init__(self, input: str | list[str], ref_pdb: str | None = None) -> None:
+
+        # Handle input loading
+        if isinstance(input, str):
+            input = [input]
+
+        pdb_names = []    # stores all frame names
+        trj_objs = []     # store all trajectory objects
+        
+        for pp in input:
+            p = Path(pp)
             if not p.exists():
-                raise FileNotFoundError(f"Path '{pdb_name}' does not exist")
-            self._pdb_name = (
-                natsorted(glob.glob(f"{p}/*.pdb")) if p.is_dir() else [pdb_name]
-            )
+                raise FileNotFoundError(f"'{pp}' does not exist")
+            if p.is_dir():
+                pdb_names += natsorted(glob.glob(f"{pp}/*.pdb"))
+                trj_objs.append(md.load(pdb_names))
+            else:
+                try:
+                    trj = md.load(pp, top=ref_pdb)
+                except UserWarning:
+                    pass
+                pdb_names += (
+                    [f"{pp}.frame_{i}" for i in range(len(trj))] if len(trj) > 1 else [pp]
+                )
+                trj_objs.append(trj)
+        
+        if len(pdb_names) == 0:
+            raise ValueError("No valid structure files found.")
+        
+        self._pdb_name = pdb_names
+        self._traj = md.join(trj_objs)
+#        print("Total ", "Chains: ", " ".join([c.chain_id for c in self._traj.topology.chains]))
+
+        # Load reference structure and topology
+        if ref_pdb:
+            self._ref_pdb = ref_pdb
+            self._ref = md.load(self._ref_pdb)
         else:
-            self._pdb_name = pdb_name
-
-        if not self._pdb_name:
-            raise ValueError("No valid PDB files found.")
-
-        self._ref_pdb = ref_pdb if ref_pdb else self._pdb_name[0]
-
-        # Load reference structure
-        self._ref = md.load(self._ref_pdb)
+            self._ref_pdb = self._pdb_name[0]
+            self._ref = self._traj[0]
         self._top = self._ref.topology
-
-        # Load trajectory
-        self._traj = md.load(self._pdb_name)
 
         # Feature storage
         self._features: dict = {}
@@ -391,6 +413,9 @@ class FeatureSelection:
             atom_pairs = np.vstack([self._get_atom_pairs(s) for s in selection])
         else:
             raise ValueError("Selection must be a string, a tuple of two strings, or a list of them.")
+        
+        # screen atom_pairs for duplicates
+        atom_pairs = np.array([[i, j] for i, j in atom_pairs if i != j], dtype=np.int_)
 
         # Compute pairwise distances in nanometers, convert to Angstroms
         # Shape: (n_structures, n_pairs)
