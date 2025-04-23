@@ -9,9 +9,9 @@ Read and cite the following when using this method:
 https://doi.org/10.1039/C9ME00115H
 """
 
-import numpy as np
-from sklearn.neighbors import KernelDensity
+from __future__ import annotations
 
+import numpy as np
 import multiprocessing as mp
 from itertools import combinations_with_replacement
 
@@ -73,20 +73,35 @@ class DistanceMatrix:
     bins : int
         Number of values along each axis for the joint probability.
         The probability will be a bins x bins grid.
-
-    bandwidth : float
-        Bandwidth parameter for kernel denensity estimation.
-
-    kernel : str
-        Kernel name for kernel density estimation.
-
     """
 
-    def __init__(self, bins: int, bandwidth: float, kernel: str):
+    def __init__(self, bins: int):
         self.memo = {}
         self.bins = bins
-        self.bandwidth = bandwidth
-        self.kernel = kernel
+
+    @classmethod
+    def from_matrix(cls, matrix: np.ndarray, names: list[str]) -> DistanceMatrix:
+
+        # check dimensions
+        if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+            raise ValueError("Matrix must be square.")
+        if matrix.shape[0] != len(names):
+            raise ValueError("Matrix and names must have the same length.")
+
+        # check for symmetry
+        if not np.allclose(matrix, matrix.T):
+            raise ValueError("Matrix must be symmetric.")
+        if not np.allclose(np.diag(matrix), 0):
+            raise ValueError("Diagonal of the matrix must be zero.")
+        if not np.all(matrix >= 0) or not np.all(np.isreal(matrix)):
+            raise ValueError("Matrix must be positive semi-definite.")
+
+        instance = cls(bins=0)
+        for i, j in combinations_with_replacement(range(len(names)), 2):
+            idx = frozenset((names[i], names[j]))
+            instance.memo[idx] = matrix[i, j]
+        
+        return instance
 
     def initialize_distances(self, ops: list[OrderParameter]) -> None:
 
@@ -126,14 +141,14 @@ class DistanceMatrix:
 
         return max(0.0, (1 - (info / entropy)))
 
-    def distance(self, op1, op2) -> float:
-        idx = frozenset((op1.name, op2.name))
+    def distance(self, op1: str, op2: str) -> float:
+        idx = frozenset((op1, op2))
         try:
             return self.memo[idx]
         except KeyError:
             raise ValueError(f"Distance between {op1.name} and {op2.name} not found")
 
-    def distortion(self, centers: list[OrderParameter], ops: list[OrderParameter]) -> float:
+    def distortion(self, centers: list[str], ops: list[str]) -> float:
         """Computes the distortion between a set of centeroids and OPs.
         When multiple centoids are used, the minimum distortion grouping
         will be used to calculate the total distortion.
@@ -200,7 +215,7 @@ class DissimilarityMatrix:
         """
 
         self_distance = self.mut.distance(new_op, new_op)
-        assert self_distance < 1e-10, f"The dissimilarity between an OP and itself is not close to zero. Decrease bandwidth. Current: {self.mut.bandwidth:.4f}"
+        assert self_distance < 1e-10, "The dissimilarity between an OP and itself is not close to zero."
 
         if len(self.OPs) == self.size:  # matrix is full, check for swaps
 
@@ -239,7 +254,7 @@ class DissimilarityMatrix:
 
 
 # Running clustering on `ops` starting with `seeds`
-def cluster(ops: list[OrderParameter], seeds: list[OrderParameter], mut: DistanceMatrix) -> list[OrderParameter]:
+def cluster(ops: list[str], seeds: list[str], mut: DistanceMatrix) -> list[str]:
     """Clusters OPs startng with centroids from a DissimilarityMatrix.
 
     Parameters
@@ -304,11 +319,11 @@ def cluster(ops: list[OrderParameter], seeds: list[OrderParameter], mut: Distanc
 
 
 # This is the general workflow for AMINO
-def find_ops(all_ops: list[OrderParameter],
+def find_ops(all_ops: list[OrderParameter] | None = None,
+             distance_matrix: np.ndarray | None = None,
+             names: list[str] | None = None,
              max_outputs: int = 20,
              bins: int = 20,
-             bandwidth: float = None,
-             kernel: str = 'epanechnikov',
              distortion_filename: str = None,
              verbose: bool = True) -> list[OrderParameter]:
     """Main function performing clustering and finding the optimal number of OPs.
@@ -326,15 +341,6 @@ def find_ops(all_ops: list[OrderParameter],
         The probability will be a bins x bins grid.
         If None this is set with a rule of thumb.
 
-    bandwidth : float or None
-        Bandwidth parameter for kernel denensity estimation.
-        If None this is set with a rule of thumb.
-
-    kernel : str
-        Kernel name for kernel density estimation.
-        It is recommended to use either epanechnikov (parabolic) or gaussian.
-        These are currently the only two implemented in bandwidth rule of thumb.
-
     distortion_filename : str or None
         The filename to save distortion jumps.
 
@@ -347,28 +353,29 @@ def find_ops(all_ops: list[OrderParameter],
         The centrioids for the optimal clustering.
     """
 
-    # selecting bandwidth
-    if bandwidth is None:
-        if kernel == 'parabolic':
-            kernel = 'epanechnikov'
-        if kernel == 'epanechnikov':
-            bw_constant = 2.2
-        else:
-            bw_constant = 1
-
-        n = np.shape(all_ops[0].traj)[0]
-        bandwidth = bw_constant * n ** (-1/6)
-        print('Selected bandwidth: ' + str(bandwidth) + '\n')
-
     # selecting bins
     if bins is None:
-        bins = np.ceil(np.sqrt(len(all_ops[0].traj)))
-        print(f"Using {bins} bins for KDE.")
+        try:
+            bins = np.ceil(np.sqrt(len(all_ops[0].traj)))
+        except NameError:
+            bins = 50
+            print("Using default bins = 50.")
 
     start = timer()
-    mut = DistanceMatrix(bins, bandwidth, kernel)
-    mut.initialize_distances(all_ops)
-    print(f"DM construction time: {timer() - start:.2f} s")
+    # If a disance matrix is provided, use it
+    if distance_matrix is not None:
+        if names is None:
+            raise ValueError("Names must be provided when using a distance matrix.")
+        mut = DistanceMatrix.from_matrix(distance_matrix, names)
+        print("Using provided distance matrix.")
+    else:
+        # Otherwise, create a new distance matrix
+        if all_ops is None:
+            raise ValueError("All OPs must be provided when not using a distance matrix.")
+        mut = DistanceMatrix(bins)
+        mut.initialize_distances(all_ops)
+        names = [op.name for op in all_ops]
+        print(f"DM construction time: {timer() - start:.2f} s")
 
     num_array = np.arange(1, max_outputs + 1)[::-1]
     distortion_array = np.zeros_like(num_array)
@@ -382,14 +389,14 @@ def find_ops(all_ops: list[OrderParameter],
 
         # DM construction
         matrix = DissimilarityMatrix(n, mut)
-        for i in all_ops:
+        for i in names:
             matrix.add_OP(i)
-        for i in all_ops[::-1]:
+        for i in names[::-1]:
             matrix.add_OP(i)
 
         # Clustering
-        selected_op[n] = cluster(all_ops, matrix.OPs, mut)
-        distortion_array[f] = mut.distortion(selected_op[n], all_ops)
+        selected_op[n] = cluster(names, matrix.OPs, mut)
+        distortion_array[f] = mut.distortion(selected_op[n], names)
 
     # Determining number of clusters
     num_ops = 0
