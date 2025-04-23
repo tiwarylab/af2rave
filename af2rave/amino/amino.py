@@ -11,12 +11,14 @@ https://doi.org/10.1039/C9ME00115H
 
 import numpy as np
 from sklearn.neighbors import KernelDensity
-from numpy.typing import ArrayLike
+
 import multiprocessing as mp
 from itertools import combinations_with_replacement
 
 from timeit import default_timer as timer
+from tqdm import tqdm
 
+from numpy.typing import ArrayLike
 
 def product_without_self(arr: np.array) -> np.array:
 
@@ -80,93 +82,39 @@ class DistanceMatrix:
 
     """
 
-    def __init__(self, bins: int, bandwidth: float, kernel: str, weights: ArrayLike = None):
+    def __init__(self, bins: int, bandwidth: float, kernel: str):
         self.memo = {}
         self.bins = bins
         self.bandwidth = bandwidth
         self.kernel = kernel
-        self.weights = weights
 
     def initialize_distances(self, ops: list[OrderParameter]) -> None:
 
         self.ops = ops
         n = len(ops)
 
+        pairs = list(combinations_with_replacement(range(n), 2))
         with mp.Pool(processes=mp.cpu_count()) as p:
-            result = p.starmap(self._distance_kernel, combinations_with_replacement(range(n), 2))
+            result = p.starmap(self._compute_pair, 
+                               tqdm(pairs, desc="Computing distances", total=n*(n+1)//2)
+            )
 
-        for (i, j), r in zip(combinations_with_replacement(range(n), 2), result):
+        for (i, j), r in zip(pairs, result):
             idx = frozenset((self.ops[i].name, self.ops[j].name))
             self.memo[idx] = r
 
-    # Binning two OP's in 2D space
-    def _d2_bin(self, x, y):
-        """ Calculate a joint probability distribution for two trajectories.
+    def _compute_pair(self, i: int, j: int) -> float:
+        """Compute distance for a single pair"""
+        x = self.ops[i].traj.flatten()
+        y = self.ops[j].traj.flatten()
+        
+        # Compute joint probability
+        p_xy = np.histogram2d(x, y, bins=self.bins)[0]
+        p_xy = p_xy / np.sum(p_xy)
+        return self._calculate_mi_distance(p_xy)
 
-        Parameters
-        ----------
-        x : np.array
-            Trajectory of first OP.
-
-        y : np.array
-            Trajcetory of second OP.
-
-        Returns
-        -------
-        p : np.array
-            self.bins by self.bins array of joint probabilities from KDE.
-
-        """
-
-        KD = KernelDensity(bandwidth=self.bandwidth, kernel=self.kernel)
-        KD.fit(np.column_stack((x, y)), sample_weight=self.weights)
-
-        grid1 = np.linspace(np.min(x), np.max(x), self.bins)
-        grid2 = np.linspace(np.min(y), np.max(y), self.bins)
-        mesh = np.meshgrid(grid1, grid2)
-
-        data = np.column_stack((mesh[0].reshape(-1, 1), mesh[1].reshape(-1, 1)))
-        samp = KD.score_samples(data)
-        samp = samp.reshape(self.bins, self.bins)
-        p = np.exp(samp) / np.sum(np.exp(samp))
-
-        return p
-
-    # Checks if distance has been computed before, otherwise computes distance
-    def distance(self, OP1: OrderParameter, OP2: OrderParameter) -> float:
-        """Returns the mutual information distance between two OPs.
-
-        Parameters
-        ----------
-        OP1 : OrderParameter
-            The first order parameter for distance calculation.
-
-        OP2 : OrderParameter
-            The second order parameter for distance calculation.
-
-        Returns
-        -------
-        float
-            The mutual information distance.
-
-        """
-
-        idx = frozenset((OP1.name, OP2.name))
-        try:
-            d = self.memo[idx]
-        except KeyError:
-            raise ValueError(f"Distance between {OP1.name} and {OP2.name} not found.")
-
-        return d
-
-    def _distance_kernel(self, i: int, j: int) -> float:
-        '''
-        Calculates the mutual information distance between the i-th and j-th OP,
-        given the joint distribution.
-        '''
-
-        p_xy = self._d2_bin(self.ops[i].traj, self.ops[j].traj)
-
+    def _calculate_mi_distance(self, p_xy: np.ndarray) -> float:
+        """Mutual information distance calculation"""
         p_x = np.sum(p_xy, axis=1)
         p_y = np.sum(p_xy, axis=0)
 
@@ -176,9 +124,14 @@ class DistanceMatrix:
         info = np.sum(p_xy * (log_p_xy - log_p_x_times_p_y))
         entropy = np.sum(-1 * p_xy * log_p_xy)
 
-        distance = max(0.0, (1 - (info / entropy)))
+        return max(0.0, (1 - (info / entropy)))
 
-        return distance
+    def distance(self, op1, op2) -> float:
+        idx = frozenset((op1.name, op2.name))
+        try:
+            return self.memo[idx]
+        except KeyError:
+            raise ValueError(f"Distance between {op1.name} and {op2.name} not found")
 
     def distortion(self, centers: list[OrderParameter], ops: list[OrderParameter]) -> float:
         """Computes the distortion between a set of centeroids and OPs.
@@ -357,7 +310,6 @@ def find_ops(all_ops: list[OrderParameter],
              bandwidth: float = None,
              kernel: str = 'epanechnikov',
              distortion_filename: str = None,
-             weights: ArrayLike = None,
              verbose: bool = True) -> list[OrderParameter]:
     """Main function performing clustering and finding the optimal number of OPs.
 
@@ -414,7 +366,7 @@ def find_ops(all_ops: list[OrderParameter],
         print(f"Using {bins} bins for KDE.")
 
     start = timer()
-    mut = DistanceMatrix(bins, bandwidth, kernel, weights)
+    mut = DistanceMatrix(bins, bandwidth, kernel)
     mut.initialize_distances(all_ops)
     print(f"DM construction time: {timer() - start:.2f} s")
 
