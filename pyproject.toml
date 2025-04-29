@@ -29,7 +29,7 @@ dependencies = [
   "pdbfixer @ git+https://github.com/openmm/pdbfixer.git",
   "torch",
   "scikit-learn",
-  "openmm",
+  "openmm>=8.1.0",
   "typer"
 ]
 
