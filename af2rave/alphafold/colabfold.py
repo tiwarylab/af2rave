@@ -3,13 +3,12 @@ LocalColabFold interface
 '''
 
 from pathlib import Path
-from typing import Union, List, Tuple
 from functools import cached_property
 
 from .base import AlphaFoldBase
+from colabfold.input import parse_fasta
 import colabfold.batch as cf
 cf.logger.setLevel("INFO")
-
 
 class ColabFold(AlphaFoldBase):
 
@@ -39,7 +38,7 @@ class ColabFold(AlphaFoldBase):
         
         self.set_msa(Path(output_dir) / f"{self._name}.a3m")
 
-    def predict(self, output_dir: str = None, msa="8:16", num_seeds=128, num_recycles=1):
+    def predict(self, output_dir: str = None, msa="8:16", num_seeds=128, num_recycles=1, **kwargs):
         '''
         Run Alphafold on Colabfold.
 
@@ -72,11 +71,12 @@ class ColabFold(AlphaFoldBase):
                       user_agent="colabfold/1.5.5",
                       max_seq=int(max_seq),
                       max_extra_seq=int(max_extra_seq),
+                      **kwargs
                       )
     
     def _get_query_from_msa(self, a3m_string: str):
 
-        (seqs, _) = cf.parse_fasta(a3m_string)
+        (seqs, _) = parse_fasta(a3m_string)
         if len(seqs) == 0:
             raise ValueError(f"Input MSA file is empty")
         query_sequence = seqs[0]
@@ -96,7 +96,7 @@ class ColabFold(AlphaFoldBase):
         Get a query list from a single sequence fasta
         '''
 
-        (sequences, headers) = cf.parse_fasta(fasta_string)
+        (sequences, headers) = parse_fasta(fasta_string)
         queries = []
         for sequence, header in zip(sequences, headers):
             sequence = sequence.upper()
