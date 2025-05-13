@@ -103,16 +103,19 @@ class DistanceMatrix:
         
         return instance
 
-    def initialize_distances(self, ops: list[OrderParameter]) -> None:
+    def initialize_distances(self, ops: list[OrderParameter], verbose=False) -> None:
 
         self.ops = ops
         n = len(ops)
 
         pairs = list(combinations_with_replacement(range(n), 2))
         with mp.Pool(processes=mp.cpu_count()) as p:
-            result = p.starmap(self._compute_pair, 
-                               tqdm(pairs, desc="Computing distances", total=n*(n+1)//2)
-            )
+            if verbose:
+                result = p.starmap(self._compute_pair, pairs)
+            else:
+                result = p.starmap(self._compute_pair, 
+                                tqdm(pairs, desc="Computing distances", total=n*(n+1)//2)
+                )
 
         for (i, j), r in zip(pairs, result):
             idx = frozenset((self.ops[i].name, self.ops[j].name))
@@ -367,15 +370,17 @@ def find_ops(all_ops: list[OrderParameter] | None = None,
         if names is None:
             raise ValueError("Names must be provided when using a distance matrix.")
         mut = DistanceMatrix.from_matrix(distance_matrix, names)
-        print("Using provided distance matrix.")
+        if verbose:
+            print("Using provided distance matrix.")
     else:
         # Otherwise, create a new distance matrix
         if all_ops is None:
             raise ValueError("All OPs must be provided when not using a distance matrix.")
         mut = DistanceMatrix(bins)
-        mut.initialize_distances(all_ops)
+        mut.initialize_distances(all_ops, verbose=verbose)
         names = [op.name for op in all_ops]
-        print(f"DM construction time: {timer() - start:.2f} s")
+        if verbose:
+            print(f"DM construction time: {timer() - start:.2f} s")
 
     num_array = np.arange(1, max_outputs + 1)[::-1]
     distortion_array = np.zeros_like(num_array)

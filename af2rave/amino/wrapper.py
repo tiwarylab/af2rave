@@ -68,8 +68,8 @@ class AMINO(object):
         '''
 
         ops = [amino.OrderParameter(l, d) for l, d in zip(label, data)]
-        result = amino.find_ops(ops, self._n, self._bins, verbose=self._verbose)
-        self._result = [i.name for i in result]
+        result = amino.find_ops(ops, max_outputs=self._n, bins=self._bins, verbose=self._verbose)
+        self._result = result
 
     @classmethod
     def from_file(cls, filename: str | list[str], **kwargs) -> AMINO:
