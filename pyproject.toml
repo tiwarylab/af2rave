@@ -24,12 +24,11 @@ requires-python = ">= 3.10"
 dependencies = [
   "natsort",
   "mdtraj",
-  "numpy<2",
-  "openmm[cuda12]",
+  "numpy",
+  "openmm[cuda12] >= 8.1.0",
   "pdbfixer @ git+https://github.com/openmm/pdbfixer.git",
   "torch",
   "scikit-learn",
-  "openmm",
   "typer"
 ]
 
