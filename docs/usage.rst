@@ -9,3 +9,4 @@ Usage
    usage.preparemd
    usage.mdsim
    usage.amino
+   usage.spib
