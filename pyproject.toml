@@ -29,7 +29,8 @@ dependencies = [
   "pdbfixer @ git+https://github.com/openmm/pdbfixer.git",
   "torch",
   "scikit-learn",
-  "typer"
+  "typer",
+  "deeptime"
 ]
 
 [project.optional-dependencies]

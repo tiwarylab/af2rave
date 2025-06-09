@@ -34,7 +34,8 @@ def spib(traj_data_list: list[torch.Tensor],
          beta: float = 0.05,
          seed: int = 42,
          UpdateLabel: bool = True,
-         SaveTrajResults: bool = True):
+         SaveTrajResults: bool = True,
+         **kwargs):
 
     '''
     Python interface for the SPIB model.
