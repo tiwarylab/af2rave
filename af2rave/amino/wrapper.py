@@ -11,6 +11,10 @@ from __future__ import annotations
 
 from ..colvar import Colvar
 from . import amino
+from af2rave.feature import utils
+
+import numpy as np
+import mdtraj as md
 
 class AMINO(object):
     '''
@@ -25,8 +29,6 @@ class AMINO(object):
     :type n: int
     :param bins: The number of bins for the computing the mutual information. Default is 50.
     :type bins: int
-    :param kde_bandwidth: The bandwidth for the kernel density estimation. Default is 0.02.
-    :type kde_bandwidth: float
     :param verbose: Whether to print the progress. Default is False.
     :type verbose: bool
     '''
@@ -35,8 +37,9 @@ class AMINO(object):
 
         self._n = kwargs.get('n', 20)
         self._bins = kwargs.get('bins', 50)
-        self._kde_bandwidth = kwargs.get('kde_bandwidth', 0.02)
         self._verbose = kwargs.get('verbose', False)
+        self._distance_matrix = kwargs.get('distance_matrix', None)
+        self._names = kwargs.get('names', None)
 
         self._colvar = Colvar()
         self._result = None
@@ -65,11 +68,8 @@ class AMINO(object):
         '''
 
         ops = [amino.OrderParameter(l, d) for l, d in zip(label, data)]
-        result = amino.find_ops(
-            ops, self._n, self._bins,
-            bandwidth=self._kde_bandwidth, verbose=self._verbose
-        )
-        self._result = [i.name for i in result]
+        result = amino.find_ops(ops, max_outputs=self._n, bins=self._bins, verbose=self._verbose)
+        self._result = result
 
     @classmethod
     def from_file(cls, filename: str | list[str], **kwargs) -> AMINO:
@@ -106,12 +106,62 @@ class AMINO(object):
         if not isinstance(colvar, Colvar):
             raise ValueError("The input should be a Colvar object.")
 
-        amino = cls(**kwargs)
+        instance = cls(**kwargs)
 
-        amino._colvar = colvar
-        amino.run(colvar.header, colvar.data)
+        instance._colvar = colvar
+        instance.run(colvar.header, colvar.data)
 
-        return amino
+        return instance
+    
+    @classmethod
+    def from_dm(cls, 
+                distance_matrix: str | np.array, 
+                names: list[str] | str | Colvar,
+                **kwargs) -> AMINO:
+        
+        '''
+        Run AMINO from a distance matrix. For keyword arguments, see `__init__`.
+        :param distance_matrix: The distance matrix to read.
+        :type distance_matrix: str | np.ndarray
+        :param names: The list of order parameter names. 
+            If a Colvar object or filename is given, the header will be used.
+        :type names: list[str] | str | Colvar
+        :return: AMINO object, with the result stored in `result`.
+        :rtype: AMINO
+        '''
+        
+        if isinstance(names, str):
+            _names = Colvar.from_file(names).header
+        elif isinstance(names, list):
+            _names = names
+        elif isinstance(names, Colvar):
+            _names = names.header
+        else:
+            raise ValueError("Unrecognized name.")
+
+        if isinstance(distance_matrix, str):
+            _dm = np.fromfile(distance_matrix)
+        elif isinstance(distance_matrix, np.ndarray):
+            _dm = distance_matrix
+        else:
+            raise ValueError("Unrecognized distance matrix.")
+        
+        # check dimensions, reshape if possible
+        if len(_dm.shape) != 2:
+            _dm = _dm.reshape(-1)
+            length = int(np.sqrt(_dm.shape[0]))
+            if length * length != _dm.shape[0]:
+                raise ValueError("Distance matrix cannot be reshaped into a square matrix.")
+            _dm = _dm.reshape(length, length)
+        
+        instance = cls(**kwargs)
+        instance._result = amino.find_ops(distance_matrix=_dm,
+                                     names=_names,
+                                     max_outputs=instance._n,
+                                     verbose=instance._verbose
+                                     )
+        
+        return instance
 
     def to_colvar(self) -> Colvar:
         '''
@@ -122,3 +172,40 @@ class AMINO(object):
         :rtype: Colvar
         '''
         return self._colvar.choose(self.result)
+    
+    def explaination(self, topology: str | md.Topology) -> list[str]:
+        '''
+        Explain the order parameters in terms of the input topology.
+        This is a helper function to understand the order parameters.
+        
+        :param topology: The topology file or object.
+        :type topology: str | md.Topology
+        :return: The list of order parameters.
+        :rtype: list[str]
+        '''
+
+        if isinstance(topology, str):
+            _top = md.load(topology).topology
+        elif isinstance(topology, md.Topology):
+            _top = topology
+        else:
+            raise ValueError("Unrecognized topology.")
+        
+        idx = [(int(i), int(j)) for _, i, j in [p.split('_') for p in self.result]]
+        expl = ["distance {} {}".format(
+            utils.chimera_representation(_top, i),
+            utils.chimera_representation(_top, j)
+        ) for i, j in idx]
+
+        return expl
+
+    def explain(self, topology: str | md.Topology) -> None:
+        '''
+        Print the explaination of the order parameters in terms of the input topology.
+        
+        :param topology: The topology file or object.
+        :type topology: str | md.Topology
+        '''
+
+        for s in self.explaination(topology):
+            print(s)
