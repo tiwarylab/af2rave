@@ -1,6 +1,7 @@
 import openmm.app as app
 import openmm.unit as unit
 import mdtraj as md
+import numpy as np
 from openmm.unit import angstrom, molar
 
 import pdbfixer
@@ -89,14 +90,11 @@ class TopologyMap:
         :type index: AtomIndexLike: int or set[int] or list[int] or list[set[int]]
         '''
         try:
-            if isinstance(index, set):
-                return {self._atom_index_map[i] for i in index}
-            elif isinstance(index, tuple):
-                return tuple(self.map_atom_index(i) for i in index)
-            elif isinstance(index, list):
-                return [self.map_atom_index(i) for i in index]
+            if isinstance(index, np.ndarray):
+                return np.vectorize(self.map_atom_index)(index)
+            elif isinstance(index, (set, tuple, list)):
+                return type(index)(map(self.map_atom_index, index))
             elif isinstance(index, Integral):
-                # mostly likely index is either an int or np.int64
                 return self._atom_index_map[int(index)]
             else:
                 raise TypeError("Unrecognized type for index.")
