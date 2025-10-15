@@ -240,6 +240,15 @@ class FeatureSelection:
         nb_pairs = set(self.nonbonded_pairs)
         coord = self._traj.xyz[:, heavy_atoms, :]  # shape: (n_structures, n_heavy_atoms, 3)
 
+        def min_dist_from_pairs(c, pairs):
+            i0 = np.fromiter((p[0] for p in pairs), int)
+            i1 = np.fromiter((p[1] for p in pairs), int) 
+            a = c[i0]
+            b = c[i1]
+            diff = a - b
+            sq = np.einsum('ij,ij->i', diff, diff)
+            return 10.0 * np.sqrt(sq.min())
+
         def min_dist_frame(c):
             tree = KDTree(c)
             pairs = tree.query_pairs(r=0.2, output_type='set')
@@ -247,8 +256,7 @@ class FeatureSelection:
                 raise ValueError("No pairs found within the guess distance. Please increase the guess value.")
             pairs = {(heavy_atoms[i], heavy_atoms[j]) for i, j in pairs}
             pairs.intersection_update(nb_pairs)
-            dist = np.array([np.linalg.norm(c[i] - c[j]) for i, j in pairs]) * 10  # Angstroms
-            return dist.min()
+            return min_dist_from_pairs(c, pairs)
 
         min_dist = [min_dist_frame(c) for c in coord]
 
