@@ -82,7 +82,7 @@ class ColabFold(AlphaFoldBase):
         query_sequence = seqs[0]
         # Use a list so we can easily extend this to multiple msas later
         a3m_lines = [a3m_string]
-        queries = [(self._name, query_sequence, a3m_lines)]
+        queries = [(self._name, query_sequence, a3m_lines, None)]
 
         return queries
     
@@ -102,11 +102,11 @@ class ColabFold(AlphaFoldBase):
             sequence = sequence.upper()
             if sequence.count(":") == 0:
                 # Single sequence
-                queries.append((header, sequence, None))
+                queries.append((header, sequence, None, None))
                 is_complex = False
             else:
                 # Complex mode
-                queries.append((header, sequence.split(":"), None))
+                queries.append((header, sequence.split(":"), None, None))
                 is_complex = True
         
         return queries, is_complex
