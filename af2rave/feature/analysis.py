@@ -371,9 +371,14 @@ class FeatureSelection:
             raise ValueError(f"Invalid mask. Some structures do not exist: {non_exist}")
 
         # Apply the mask
-        slices = [self._traj.slice(self._pdb_name.index(m), copy=False) for m in mask]
+        idx_slices = [self._pdb_name.index(m) for m in mask]
+        slices = [self._traj.slice(i, copy=False) for i in idx_slices]
         self._pdb_name = mask
         self._traj = md.join(slices, check_topology=False)
+
+        # Also check if features need to be updated
+        if self._features:
+            self._features = {k: v[idx_slices] for k, v in self._features.items()}
 
     # ===== Feature selection =====
     def _get_atom_pairs(self, selection: str | tuple[str, str]) -> NDArray[np.int_]:
