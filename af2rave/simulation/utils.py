@@ -81,7 +81,7 @@ class TopologyMap:
 
     def map_atom_index(self, index: AtomIndexLike) -> AtomIndexLike:
         '''
-        Map atom index from input PDB to the output PDB file.
+        Map atom index (0-based) from input PDB to the output PDB file.
 
         After adding hydrogen, the atom index will be changed. This function
         translates the old atom index to the new atom index.
@@ -99,8 +99,9 @@ class TopologyMap:
             else:
                 raise TypeError("Unrecognized type for index.")
         except KeyError as e:
-            raise ValueError(f"Atom index {e} in the new topology does "
-                             "not exist in the old topology.") from e
+            atom_missing = list(self._old_top.atoms())[int(e.args[0])]
+            raise ValueError(f"{atom_missing} in the new topology does "
+                             "not exist in the old topology.")
 
 
 class SimulationBox:
