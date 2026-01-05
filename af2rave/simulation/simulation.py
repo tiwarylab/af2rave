@@ -71,6 +71,8 @@ class UnbiasedSimulation():
         self._pos = pdb_file.positions
         self._top = pdb_file.topology
 
+        self._list_of_index = kwargs.get('list_of_index', None)
+        
         self._pressure = self._get_pressure(**kwargs)
         self._temp = self._get_temperature(**kwargs)
 
@@ -271,13 +273,11 @@ class UnbiasedSimulation():
         if "cv_reporter" in kwargs:
             return kwargs["cv_reporter"]
 
-        list_of_index = kwargs.get('list_of_index', None)
-
-        if list_of_index is not None:
+        if self._list_of_index is not None:
             cv_file = kwargs.get('cv_file', self._prefix + "_colvar.dat")
             cv_freq = kwargs.get('cv_freq', 50)
             append = kwargs.get('append', False)
-            return CVReporter(cv_file, cv_freq, list_of_index, append)
+            return CVReporter(cv_file, cv_freq, self._list_of_index, append)
 
         print("No atom indices provided. Will not output CV timeseries.")
         return None
