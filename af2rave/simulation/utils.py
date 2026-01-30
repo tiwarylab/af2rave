@@ -163,7 +163,7 @@ class SimulationBox:
 
         # add disulfide bonds
         for i, j in resid:
-            residues = {int(r.id): r for r in modeller.topology.residues()}
+            residues = {int(r.index): r for r in modeller.topology.residues()}
             residue_i, residue_j = residues[i], residues[j]
             if residue_i.name != "CYS" or residue_j.name != "CYS":
                 raise ValueError(f"Residues {i}({residue_i.name}) {j}({residue_j.name}) both need to be cysteines.")

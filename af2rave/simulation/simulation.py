@@ -56,6 +56,8 @@ class UnbiasedSimulation():
     :param xtc_reporter: XTCReporter object.
         This overrides traj_filename and traj_freq. Default: None
     :type xtc_reporter: mdtraj.reporters.XTCReporter
+    :param custom_forces: List of custom forces to be added to the system.
+        Default: None
     :param append: Appends to existing file. Default: False
     :type append: bool
     :param progress_every: Progress report to stdout frequency. Default: 1000
@@ -214,6 +216,14 @@ class UnbiasedSimulation():
             nonbondedCutoff=cutoff,
             constraints=app.HBonds
         )
+        
+        custom_forces = kwargs.get('custom_forces', None)
+        if custom_forces is not None:
+            if not isinstance(custom_forces, list):
+                custom_forces = [custom_forces]
+            for force in custom_forces:
+                system.addForce(force)
+
         integrator = openmm.LangevinMiddleIntegrator(self._temp, 1 / picoseconds, dt)
         simulation = app.Simulation(self._top, system, integrator, self._platform)
 
