@@ -171,7 +171,6 @@ class FeatureSelection:
 
         return atom_indices
 
-    @property
     def get_rmsd(self, selection: str = "name CA") -> dict[str, float]:
         '''
         Get the RMSD of the atoms in the selection for each frame in the trajectory.
