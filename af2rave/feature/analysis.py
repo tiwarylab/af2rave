@@ -559,7 +559,7 @@ class FeatureSelection:
 
         while i < npoints:
             x_active = data[i:i + batch_size]
-            current_centers = data[center_id[center_id != -1]]
+            current_centers = z[center_id[center_id != -1]]
 
             # Compute Euclidean distances normalized by sqrt(ndim)
             distances = np.linalg.norm(x_active[:, np.newaxis, :] - current_centers[np.newaxis, :, :], axis=2) / np.sqrt(ndim)
